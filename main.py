@@ -1,7 +1,5 @@
 from A1 import A1
 
-A1.X_test
- 
 # # ======================================================================================================================
 # # Data preprocessing
 # data_train, data_val, data_test = data_preprocessing(args...)
@@ -38,7 +36,7 @@ A1.X_test
 
 # # ======================================================================================================================
 # ## Print out your results with following format:
-print('TA1:{},{};TA2:{},{};TB1:{},{};TB2:{},{};'.format(A1.train_acc, A1.test_acc
-                                                        # acc_A2_train, acc_A2_test,
-                                                        # acc_B1_train, acc_B1_test,
-                                                        # acc_B2_train, acc_B2_test))
+print('TA1:{},{};TA2:{},{};TB1:{},{};TB2:{},{};'.format(A1.train_acc, A1.test_acc,
+                                                        "acc_A2_train", "acc_A2_test",
+                                                        "acc_B1_train", "acc_B1_test",
+                                                        "acc_B2_train", "acc_B2_test"))

@@ -36,7 +36,7 @@ from progressbar import ProgressBar
 # Used to standardise the date and undertake PCA
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.decomposition import PCA
-
+ 
 # Performance metrics used to represent how well the model peroforms
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import (confusion_matrix,roc_auc_score, precision_recall_curve, auc,
@@ -44,20 +44,20 @@ from sklearn.metrics import (confusion_matrix,roc_auc_score, precision_recall_cu
                              precision_recall_fscore_support, log_loss)
 
 
-def plot_hog_image(image):
-    fd, hog_image = hog(image, orientations=9, pixels_per_cell=(8, 8), 
-                    cells_per_block=(2, 2), visualize=True, multichannel=True)
+# def plot_hog_image(image):
+#     fd, hog_image = hog(image, orientations=9, pixels_per_cell=(8, 8), 
+#                     cells_per_block=(2, 2), visualize=True, multichannel=True)
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True) 
+#     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True) 
 
-    ax1.imshow(image, cmap=plt.cm.gray) 
-    ax1.set_title('Input image') 
+#     ax1.imshow(image, cmap=plt.cm.gray) 
+#     ax1.set_title('Input image') 
 
-    # Rescale histogram for better display 
-    hog_image_rescaled = exposure.rescale_intensity(hog_image, in_range=(0, 10)) 
+#     # Rescale histogram for better display 
+#     hog_image_rescaled = exposure.rescale_intensity(hog_image, in_range=(0, 10)) 
 
-    ax2.imshow(hog_image_rescaled, cmap=plt.cm.gray) 
-    ax2.set_title('Histogram of Oriented Gradients')
+#     ax2.imshow(hog_image_rescaled, cmap=plt.cm.gray) 
+#     ax2.set_title('Histogram of Oriented Gradients')
 
 def plotLBP_image(image):
     imgLBP = image
@@ -287,7 +287,7 @@ def create_feature_matrix(label_dataframe,extraction):
             image_features = create_combined_features(img_id)
             features_list.append(image_features)
         if extraction == "flat":
-            image_features = img_id.flatten()
+            image_features = rgb2gray(img_id).flatten()
             features_list.append(image_features)
     # convert list of arrays into a matrix
     feature_matrix = np.array(features_list)
@@ -302,8 +302,8 @@ def create_hog_features(img):
     return flat_features
 
 
-def create_lbp_features(img):
-    gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+def create_lbp_features(image):
+    gray_image = rgb2gray(image)
     LBP_image = np.zeros_like(gray_image)
     neighboor = 3 
     for ih in range(0,image.shape[0] - neighboor):
@@ -329,7 +329,7 @@ def create_combined_features(img):
     fd, hog_image = hog(img, orientations=9, pixels_per_cell=(8, 8), 
                     cells_per_block=(2, 2), visualize=True, multichannel=True, block_norm = "L2-Hys")
     hog_image_rescaled = exposure.rescale_intensity(hog_image, in_range=(0, 10))
-    LBP = getLBP_image(img)/255
+    LBP = create_lbp_features(img)/255
     feat = np.hstack([LBP, hog_image_rescaled]).flatten()
     return feat
 
@@ -379,7 +379,7 @@ def plot_confusion_matrix(y_test,y_pred_LR):
     y_axis_labels = ['Predicted Female','Predicted Male'] # labels for y-axis
     sns.heatmap(df_cm_LR, annot=True,xticklabels=x_axis_labels, yticklabels=y_axis_labels)
 
-def plot_ROC():
+def plot_ROC(LR):
     y_pred_proba_LR = LR.predict_proba(X_test)[:,1]
     fpr_LR, tpr_LR, thresholds_LR = roc_curve(y_test, y_pred_proba_LR)
     plt.plot([0,1],[0,1],'k--')
@@ -393,7 +393,7 @@ def plot_ROC():
 
 
 df = load_A1_data()
-X_train, X_test, y_train, y_test = data_partition(df,"hog")
+X_train, X_test, y_train, y_test = data_partition(df,"flat")
 
 # to save it
 # X_train_file="X_train_hog.pkl"  
@@ -401,7 +401,7 @@ X_train, X_test, y_train, y_test = data_partition(df,"hog")
 # X_test_file="X_test_hog.pkl"  
 # joblib.dump(X_test, X_test_file)
  
-X_train, X_test,pca = apply_pca(X_train,X_test)
+# X_train, X_test,pca = apply_pca(X_train,X_test)
 
 # plot_eigenfaces(pca,218,178)
 
@@ -417,7 +417,6 @@ plot_confusion_matrix(y_test,y_pred_LR)
 
 auc_roc_LR= roc_auc_score(y_test,y_pred_LR)
 
-
-
+plot_ROC(LR)
 
 
