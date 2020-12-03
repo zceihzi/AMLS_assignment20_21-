@@ -2,7 +2,6 @@
 from PIL import Image
 import os
 
-
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
@@ -32,7 +31,6 @@ from skimage import exposure
 import seaborn as sns
 from progressbar import ProgressBar
 
-
 # Used to standardise the date and undertake PCA
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.decomposition import PCA
@@ -43,43 +41,40 @@ from sklearn.metrics import (confusion_matrix,roc_auc_score, precision_recall_cu
                              roc_curve, recall_score,accuracy_score, classification_report, f1_score,
                              precision_recall_fscore_support, log_loss)
 
+import keras
+import tensorflow as tf
+from keras.utils import to_categorical
+from keras.models import Sequential
+from keras.layers import Conv2D, MaxPooling2D
+from keras.layers import Activation, Dropout, Flatten, Dense
 
-# def plot_hog_image(image):
-#     fd, hog_image = hog(image, orientations=9, pixels_per_cell=(8, 8), 
-#                     cells_per_block=(2, 2), visualize=True, multichannel=True)
 
-#     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True) 
-
-#     ax1.imshow(image, cmap=plt.cm.gray) 
-#     ax1.set_title('Input image') 
-
-#     # Rescale histogram for better display 
-#     hog_image_rescaled = exposure.rescale_intensity(hog_image, in_range=(0, 10)) 
-
-#     ax2.imshow(hog_image_rescaled, cmap=plt.cm.gray) 
-#     ax2.set_title('Histogram of Oriented Gradients')
-
-def plotLBP_image(image):
-    imgLBP = image
-    vecimgLBP = imgLBP.flatten()
-
-    fig = plt.figure(figsize=(20,8))
-    ax  = fig.add_subplot(1,3,1)
-    ax.imshow(image)
-    ax.set_title("gray scale image")
-    ax  = fig.add_subplot(1,3,2)
-    ax.imshow(imgLBP,cmap="gray")
-    ax.set_title("LBP converted image")
-    ax  = fig.add_subplot(1,3,3)
-    freq,lbp, _ = ax.hist(vecimgLBP,bins=2**8)
-    ax.set_ylim(0,40000)
-    lbp = lbp[:-1]
-    ## print the LBP values when frequencies are high
-    largeTF = freq > 5000
-    for x, fr in zip(lbp[largeTF],freq[largeTF]):
-        ax.text(x,fr, "{:6.0f}".format(x),color="red")
-    ax.set_title("LBP histogram")
+def plot_data_sample(df):
+    plt.figure(figsize=(10,10))
+    for i in range(25):
+        plt.subplot(5,5,i+1)
+        plt.xticks([])
+        plt.yticks([])
+        plt.grid(False)
+        plt.imshow(df["img_name"].iloc[i])
+        plt.xlabel(df["gender"].iloc[i])
     plt.show()
+
+def plot_hog_image(image):
+    image = Image.open("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/celeba/img/"+image)
+    fd, hog_image = hog(image, orientations=9, pixels_per_cell=(8, 8), 
+                    cells_per_block=(2, 2), visualize=True, multichannel=True)
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True) 
+    ax1.imshow(image) 
+    ax1.set_title('Input image') 
+
+    # Rescale histogram for better display 
+    hog_image_rescaled = exposure.rescale_intensity(hog_image, in_range=(0, 10)) 
+    ax2.imshow(hog_image_rescaled) 
+    ax2.set_title('Histogram of Oriented Gradients')
+    plt.show()
+
     
 def plot_eigenfaces(pca):
     fig, axes = plt.subplots(2,10,figsize=(15,3),
@@ -89,80 +84,44 @@ def plot_eigenfaces(pca):
 #         ax.imshow(pca.components_[i].reshape(654,178),cmap="gray")
     #     ax.imshow(projected[i].reshape(436,178),cmap="binary")
         ax.imshow(pca.components_[i].reshape(218,178),cmap="gray")
-    
+    plt.show()
+
 
 def plot_pca_projections(pca,X_train):
     projected = pca.inverse_transform(X_train)
-    fig, axes = plt.subplots(2,10,figsize=(15,3), subplot_kw={'xticks':[], 'yticks':[]},
-                gridspec_kw=dict(hspace=0.01, wspace=0.01))
+    fig, axes = plt.subplots(2,10,figsize=(15, 3), subplot_kw={'xticks':[], 'yticks':[]},gridspec_kw=dict(hspace=0.01, wspace=0.01))
     for i, ax in enumerate(axes.flat):
         ax.imshow(projected[i].reshape(218,178),cmap="binary")
     #     ax.imshow(projected[i].reshape(436,178),cmap="binary")
     #     ax.imshow(projected[i].reshape(654,178),cmap="gray")
-    
+    plt.show()
+
+
+def plot_confusion_matrix(y_test,y_pred):
+    cm_LR=confusion_matrix(y_test,y_pred)
+    df_cm_LR = pd.DataFrame(cm_LR, index = [i for i in "cm"],columns = [i for i in "cm"])
+    plt.figure()
+    x_axis_labels = ['Actual Female','Actual Male'] # labels for x-axis
+    y_axis_labels = ['Predicted Female','Predicted Male'] # labels for y-axis
+    sns.heatmap(df_cm_LR, annot=True,xticklabels=x_axis_labels, yticklabels=y_axis_labels)
+
+def plot_ROC(model,auc_roc,X_test,y_test):
+    y_pred_proba = model.predict_proba(X_test)[:,1]
+    fpr, tpr, thresholds = roc_curve(y_test, y_pred_proba)
+    fig, ax = plt.subplots(1,1)
+    ax.plot(fpr, tpr, label='ROC curve (area = %0.2f)' % auc_roc)
+    ax.plot([0, 1], [0, 1], 'k--')
+    ax.set_xlim([0.0, 1.0])
+    ax.set_ylim([0.0, 1.05])
+    ax.set_xlabel('False Positive Rate')
+    ax.set_ylabel('True Positive Rate')
+    ax.set_title('Receiver operating characteristic example')
+    ax.legend(loc="lower right")
+    plt.show()
 
 
 def plot_learning_curve(estimator, title, X, y, axes=None, ylim=None, cv=3,
                         n_jobs=None, train_sizes=np.linspace(.1, 1.0, 5)):
-    """
-    Generate 3 plots: the test and training learning curve, the training
-    samples vs fit times curve, the fit times vs score curve.
-
-    Parameters
-    ----------
-    estimator : object type that implements the "fit" and "predict" methods
-        An object of that type which is cloned for each validation.
-
-    title : string
-        Title for the chart.
-
-    X : array-like, shape (n_samples, n_features)
-        Training vector, where n_samples is the number of samples and
-        n_features is the number of features.
-
-    y : array-like, shape (n_samples) or (n_samples, n_features), optional
-        Target relative to X for classification or regression;
-        None for unsupervised learning.
-
-    axes : array of 3 axes, optional (default=None)
-        Axes to use for plotting the curves.
-
-    ylim : tuple, shape (ymin, ymax), optional
-        Defines minimum and maximum yvalues plotted.
-
-    cv : int, cross-validation generator or an iterable, optional
-        Determines the cross-validation splitting strategy.
-        Possible inputs for cv are:
-
-          - None, to use the default 5-fold cross-validation,
-          - integer, to specify the number of folds.
-          - :term:`CV splitter`,
-          - An iterable yielding (train, test) splits as arrays of indices.
-
-        For integer/None inputs, if ``y`` is binary or multiclass,
-        :class:`StratifiedKFold` used. If the estimator is not a classifier
-        or if ``y`` is neither binary nor multiclass, :class:`KFold` is used.
-
-        Refer :ref:`User Guide <cross_validation>` for the various
-        cross-validators that can be used here.
-
-    n_jobs : int or None, optional (default=None)
-        Number of jobs to run in parallel.
-        ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
-        ``-1`` means using all processors. See :term:`Glossary <n_jobs>`
-        for more details.
-
-    train_sizes : array-like, shape (n_ticks,), dtype float or int
-        Relative or absolute numbers of training examples that will be used to
-        generate the learning curve. If the dtype is float, it is regarded as a
-        fraction of the maximum size of the training set (that is determined
-        by the selected validation method), i.e. it has to be within (0, 1].
-        Otherwise it is interpreted as absolute sizes of the training sets.
-        Note that for classification the number of samples usually have to
-        be big enough to contain at least one sample from each class.
-        (default: np.linspace(0.1, 1.0, 5))
-    """
-    
     if axes is None:
         _, axes = plt.subplots(1, 2, figsize=(20, 5))
 
@@ -205,8 +164,18 @@ def plot_learning_curve(estimator, title, X, y, axes=None, ylim=None, cv=3,
     axes[1].set_xlabel("fit_times")
     axes[1].set_ylabel("Score")
     axes[1].set_title("Performance of the model")
-
     return plt
+
+
+def plot_lbp_image(image):
+    img = cv2.imread("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/celeba/img/"+image, 1) 
+    img_lbp = create_lbp_features(img)
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True) 
+    ax1.imshow(img, cmap=plt.cm.gray) 
+    ax1.set_title('Input image') 
+    ax2.imshow(img_lbp, cmap=plt.cm.gray) 
+    plt.show()
+
 
 def load_A1_data():
     '''
@@ -237,29 +206,16 @@ def load_A1_data():
     df = df.drop(df.columns[[2]], axis=1)
     return df 
 
-
 def data_partition(df, extraction:str = ""):
-    '''
-    == Input ==
-    gray_image  : color image of shape (height, width)
-    
-    == Output ==  
-    imgLBP : LBP converted image of the same shape as 
-    '''
     X = pd.DataFrame(df["img_name"].values)
     y = pd.Series(df["gender"].values)
 
-    X_train, X_test, y_train, y_test = train_test_split(X,
-                                                        y,
-                                                        test_size=.20,
-                                                        random_state=12039393)
-
+    X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=.20,random_state=12039393)
     X_train = create_feature_matrix(X_train[0],extraction)
     X_test = create_feature_matrix(X_test[0],extraction)
 
     # X_train = joblib.load("X_train_fusion.pkl")
     # X_test = joblib.load("X_test_fusion.pkl")
-    
     
     # look at the distrubution of labels in the train set
 #     print(pd.Series(y_train).value_counts())
@@ -268,7 +224,6 @@ def data_partition(df, extraction:str = ""):
     print("y_train has shape:", y_train.shape)
     print("X_test has shape:", X_test.shape)
     print("y_test has shape:", y_test.shape)
-    
     return X_train,X_test,y_train,y_test
 
 
@@ -289,6 +244,10 @@ def create_feature_matrix(label_dataframe,extraction):
         if extraction == "flat":
             image_features = rgb2gray(img_id).flatten()
             features_list.append(image_features)
+        if extraction == "unchanged":
+            image_features = img_id/255
+            features_list.append(image_features)
+            
     # convert list of arrays into a matrix
     feature_matrix = np.array(features_list)
     return feature_matrix
@@ -302,29 +261,166 @@ def create_hog_features(img):
     return flat_features
 
 
-def create_lbp_features(image):
-    gray_image = rgb2gray(image)
-    LBP_image = np.zeros_like(gray_image)
-    neighboor = 3 
-    for ih in range(0,image.shape[0] - neighboor):
-        for iw in range(0,image.shape[1] - neighboor):
-            ### Step 1: 3 by 3 pixel
-            img          = gray_image[ih:ih+neighboor,iw:iw+neighboor]
-            center       = img[1,1]
-            img01        = (img >= center)*1.0
-            img01_vector = img01.T.flatten()
-            ### Step 2: **Binary operation**:
-            img01_vector = np.delete(img01_vector,4)
-            ### Step 3: Decimal: Convert the binary operated values to a digit.
-            where_img01_vector = np.where(img01_vector)[0]
-            if len(where_img01_vector) >= 1:
-                num = np.sum(2**where_img01_vector)
-            else:
-                num = 0
-            LBP_image[ih+1,iw+1] = num
-    return(LBP_image)
-    
+def get_pixel(img, center, x, y): 
+    adjusted_value = 0
+    try: 
+#       Set to 1 if greated than the central pixel value else set it to 0
+        if img[x][y] >= center: 
+            adjusted_value = 1
+    except: 
+#       Used to bypass the event where a pixel value is null i.e. values in boundaries. 
+        pass
+    return adjusted_value 
 
+
+def lbp_calculated_pixel(img, x, y): 
+    center = img[x][y] 
+    val_ar = [] 
+
+    # top_left 
+    val_ar.append(get_pixel(img, center, x-1, y-1)) 
+    # top 
+    val_ar.append(get_pixel(img, center, x-1, y)) 
+    # top_right 
+    val_ar.append(get_pixel(img, center, x-1, y + 1)) 
+    # right 
+    val_ar.append(get_pixel(img, center, x, y + 1)) 
+    # bottom_right 
+    val_ar.append(get_pixel(img, center, x + 1, y + 1)) 
+    # bottom 
+    val_ar.append(get_pixel(img, center, x + 1, y)) 
+    # bottom_left 
+    val_ar.append(get_pixel(img, center, x + 1, y-1)) 
+    # left 
+    val_ar.append(get_pixel(img, center, x, y-1)) 
+
+    # Now, we need to convert binary values to decimal 
+    power_val = [1, 2, 4, 8, 16, 32, 64, 128] 
+    val = 0
+    for i in range(len(val_ar)): 
+        val += val_ar[i] * power_val[i] 
+    return val 
+
+
+def create_lbp_features(img):
+    height, width, _ = img.shape 
+#   Convert to graysclae beacause the has only one channel . 
+    img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) 
+#   Get array of  same height and width as the RGB image 
+    img_lbp = np.zeros((height, width), np.uint8) 
+    for i in range(0, height): 
+        for j in range(0, width): 
+            img_lbp[i, j] = lbp_calculated_pixel(img_gray, i, j) 
+    return img_lbp
+
+
+def data_partition_validate(df,extraction):
+    X = pd.DataFrame(df["img_name"].values)
+    y = pd.Series(df["gender"].values)
+    X_train, X_test, y_train, y_test = train_test_split(X,
+                                                        y,
+                                                        test_size=.20,
+                                                        random_state=1234123)
+    X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=1)
+    
+    X_train = create_feature_matrix(X_train[0],extraction)
+    X_test = create_feature_matrix(X_test[0],extraction)
+    X_val = create_feature_matrix(X_val[0],extraction)
+
+    # look at the distrubution of labels in the train set
+    print("X_train has shape:", X_train.shape)
+    print("y_train has shape:", y_train.shape)
+    print("")
+    print("X_test has shape:", X_test.shape)
+    print("y_test has shape:", y_test.shape)
+    print("")
+    print("X_val has shape:", X_val.shape)
+    print("y_val has shape:", y_val.shape)
+    
+    return X_train,X_test,X_val,y_train,y_test,y_val
+
+
+def train_validate_CNN(summary:bool=False, epoch:int=15):
+    
+    model = Sequential()
+    model.add(Conv2D(16, 3, input_shape=(218,178 ,3)))
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D())
+
+    model.add(Conv2D(32, 3))
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D())
+
+    model.add(Conv2D(64, 3))
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D())
+
+    model.add(Conv2D(128, 3))
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D())
+
+    model.add(Conv2D(256, 3))
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D())
+
+    model.add(Flatten())  # this converts our 3D feature maps to 1D feature vectors
+    model.add(Dense(256))
+    keras.layers.Dropout(0.5),
+
+    model.add(Activation('relu'))
+    model.add(Dense(2))
+    keras.layers.Dropout(0.5),
+    model.add(Activation('softmax'))
+
+    model.compile(loss='binary_crossentropy',
+                 optimizer='adam',
+                 metrics=['accuracy'])
+
+    if summary == True:
+        # Take a look at the model summary
+        model.summary()
+
+    history = model.fit(X_train, to_categorical(y_train.values.ravel()), epochs=epoch, 
+                        validation_data=(X_val, to_categorical(y_val.values.ravel())))
+
+    return history, model,epoch
+
+
+def CNN_learning_curve(history):
+    acc = history.history['accuracy']
+    val_acc = history.history['val_accuracy']
+
+    loss = history.history['loss']
+    val_loss = history.history['val_loss']
+
+    epochs_range = range(15)
+
+    plt.figure(figsize=(8, 8))
+    plt.subplot(1, 2, 1)
+    plt.plot(epochs_range, acc, label='Training Accuracy')
+    plt.plot(epochs_range, val_acc, label='Validation Accuracy')
+    plt.legend(loc='lower right')
+    plt.title('Training and Validation Accuracy')
+
+    plt.subplot(1, 2, 2)
+    plt.plot(epochs_range, loss, label='Training Loss')
+    plt.plot(epochs_range, val_loss, label='Validation Loss')
+    plt.legend(loc='upper right')
+    plt.title('Training and Validation Loss')
+    plt.show()
+    
+def CNN_predict():
+    y_pred = model.predict(X_test)
+    class_names=[0, 1]
+    score = tf.nn.softmax(y_pred[0])
+    temp = []
+    for i in y_pred:
+        score = tf.nn.softmax(i)
+        i = class_names[np.argmax(score)]
+        temp.append(i)
+    return temp
+
+    
 def create_combined_features(img):
     fd, hog_image = hog(img, orientations=9, pixels_per_cell=(8, 8), 
                     cells_per_block=(2, 2), visualize=True, multichannel=True, block_norm = "L2-Hys")
@@ -333,7 +429,8 @@ def create_combined_features(img):
     feat = np.hstack([LBP, hog_image_rescaled]).flatten()
     return feat
 
-def apply_pca(X_train,X_test):
+
+def apply_pca(X_train,X_test,plot:bool=False):
     ss = StandardScaler()
     ss = ss.fit(X_train)
     X_train = ss.transform(X_train)
@@ -341,7 +438,6 @@ def apply_pca(X_train,X_test):
     
     pca = PCA(n_components = 2700)
     pca = pca.fit(X_train)
-    plt.plot(np.cumsum(pca.explained_variance_ratio_))
 
     print('Initial train matrix shape is: ', X_train.shape)
     print('Initial test shape is: ', X_test.shape)
@@ -349,74 +445,102 @@ def apply_pca(X_train,X_test):
     X_test = pca.transform(X_test)
     print('PCA transformed train shape is: ', X_train.shape)
     print('PCA transformed test shape is: ', X_test.shape)
-    plt.show()
+    if plot is True:
+        plt.plot(np.cumsum(pca.explained_variance_ratio_))
+        plt.show()
     return X_train,X_test,pca
 
 
-def train_test_LR():
-    LR = LogisticRegression(C=0.01, max_iter=1500, solver='liblinear')
-    LR.fit(X_train, y_train)
-    y_pred_LR = LR.predict(X_test)
-    print('LR Fitting accuracy'+"\n"+ '**************************')
-    train_acc = LR.score(X_train,y_train)
+def grid_search_tuning(model,X_train,y_train):
+    print("Hyperparameter Tuning using 5-folds validation")
+    if model == "SVM":
+        grid= {'kernel':('linear', 'sigmoid'), 'C': [0.1, 1, 10, 100], 
+                'gamma': [0.01, 0.001,0.0001,0.00001]}
+        tuned_model = GridSearchCV(SVC(), grid, verbose=1)
+        tuned_model.fit(X_train, y_train)
+    if model == "LR":
+        grid = {'C':[0.001,.009,0.01,.09,1],'solver':['newton-cg', 'lbfgs', 'liblinear', 'sag', 'saga']}
+        tuned_model = GridSearchCV(LogisticRegression(max_iter = 1500), grid, verbose=1)
+        tuned_model.fit(X_train, y_train)
+    if model == "KNN":
+        grid = {'n_neighbors':  range(1,40)}
+        tuned_model =  GridSearchCV(KNeighborsClassifier(),grid,verbose=1)
+        tuned_model.fit(X_train, y_train)
+
+    print("Best Parameters:\n", tuned_model.best_params_)
+    print("Best Estimators:\n", tuned_model.best_estimator_)
+        
+
+def train_test(model,X_train,y_train,X_test,y_test):
+    model = model
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
+    print('Fitting accuracy'+"\n"+ '**************************')
+    train_acc = model.score(X_train,y_train)
     print(train_acc)
-    print('LR Prediction accuracy'+"\n"+'**************************')
-    test_acc = LR.score(X_test,y_test)
+    print('Prediction accuracy'+"\n"+'**************************')
+    test_acc = model.score(X_test,y_test)
     print(test_acc)
     print("")
     print("************************************************************")
     print("                 LR classification report")
     print("************************************************************")
-    print(classification_report(y_test, y_pred_LR))
-    return y_test, y_pred_LR,train_acc,test_acc, LR
+    print(classification_report(y_test, y_pred))
+    return y_pred,train_acc,test_acc, model
 
 
-def plot_confusion_matrix(y_test,y_pred_LR):
-    cm_LR=confusion_matrix(y_test,y_pred_LR)
-    df_cm_LR = pd.DataFrame(cm_LR, index = [i for i in "cm"],columns = [i for i in "cm"])
-    plt.figure()
-    x_axis_labels = ['Actual Female','Actual Male'] # labels for x-axis
-    y_axis_labels = ['Predicted Female','Predicted Male'] # labels for y-axis
-    sns.heatmap(df_cm_LR, annot=True,xticklabels=x_axis_labels, yticklabels=y_axis_labels)
 
-def plot_ROC(LR):
-    y_pred_proba_LR = LR.predict_proba(X_test)[:,1]
-    fpr_LR, tpr_LR, thresholds_LR = roc_curve(y_test, y_pred_proba_LR)
-    plt.plot([0,1],[0,1],'k--')
-    plt.plot(fpr_LR,tpr_LR)
-    plt.plot(fpr_LR,tpr_LR, color='blue',label = 'AUC = %0.2f' % auc_roc_LR)
-    plt.xlabel('False positive rate')
-    plt.ylabel('True positive rate')
-    plt.title("LR ROC curve")
-    plt.legend(loc="lower right")
-    plt.show()
-
-
+# Load csv, extract coma separated values for rows and columns to create a clean dataframe
 df = load_A1_data()
-X_train, X_test, y_train, y_test = data_partition(df,"flat")
+# plot_data_sample(df)
+# X_train, X_test, y_train, y_test = data_partition(df,"combined")
 
 # to save it
 # X_train_file="X_train_hog.pkl"  
 # joblib.dump(X_train, X_train_file)
 # X_test_file="X_test_hog.pkl"  
 # joblib.dump(X_test, X_test_file)
- 
-# X_train, X_test,pca = apply_pca(X_train,X_test)
 
-# plot_eigenfaces(pca,218,178)
-
+# X_train, X_test,pca = apply_pca(X_train,X_test,plot=False)
+# plot_eigenfaces(pca)
 # plot_pca_projections(pca,X_train)
 
-plot_learning_curve (LogisticRegression(C=0.01, max_iter=1500, solver='liblinear'),
-                                        "Learning curve for LR",
-                                        X_train,y_train)
 
-y_test, y_pred_LR,train_acc,test_acc, LR = train_test_LR()
-
-plot_confusion_matrix(y_test,y_pred_LR)
-
-auc_roc_LR= roc_auc_score(y_test,y_pred_LR)
-
-plot_ROC(LR)
+# # Run this code to return results for Logistic regression
+# LR = LogisticRegression(C=0.01, max_iter=1500, solver='liblinear')
+# plot_learning_curve (LR,"Learning curve for LR",X_train,y_train)
+# # grid_search_tuning("LR",X_train,y_train)
+# y_pred_LR,train_acc_LR,test_acc_LR, LR = train_test(LR,X_train,y_train,X_test,y_test)
+# auc_roc_LR= roc_auc_score(y_test,y_pred_LR)
+# plot_ROC(LR,auc_roc_LR,X_test,y_test)
+# plot_confusion_matrix(y_test,y_pred_LR)
 
 
+# # Run this code to return results for Support Vector Machines
+# SVM = SVC(C=9, gamma=1e-05, kernel='linear',probability=True)
+# plot_learning_curve (LR,"Learning curve for SVM",X_train,y_train)
+# # grid_search_tuning("SVM",X_train,y_train)
+# y_pred_SVM,train_acc_SVM,test_acc_SVM, SVM = train_test(SVM,X_train,y_train,X_test,y_test)
+# auc_roc_SVM= roc_auc_score(y_test,y_pred_SVM)
+# plot_ROC(SVM,auc_roc_SVM,X_test,y_test)
+# plot_confusion_matrix(y_test,y_pred_SVM)
+
+
+# # Run this code to return results for KNN
+# KNN = KNeighborsClassifier(n_neighbors = 38)
+# plot_learning_curve (KNN,"Learning curve for KNN",X_train,y_train)
+# # grid_search_tuning("KNN",X_train,y_train)
+# y_pred_KNN,train_acc_KNN,test_acc_KNN, KNN = train_test(KNN,X_train,y_train,X_test,y_test)
+# auc_roc_KNN= roc_auc_score(y_test,y_pred_KNN)
+# plot_ROC(KNN,auc_roc_KN,X_test,y_test)
+# plot_confusion_matrix(y_test,y_pred_KNN)
+
+
+# Run this code to return results for CNN
+X_train, X_test,X_val,y_train, y_test, y_val = data_partition_validate(df,"unchanged")
+history, model,epoch = train_validate_CNN(epoch=15)
+CNN_learning_curve(history)
+y_pred_CNN = CNN_predict()
+plot_confusion_matrix(y_test,y_pred_CNN)
+auc_roc_CNN= roc_auc_score(y_test,y_pred_CNN)
+plot_ROC(model,auc_roc_CNN,X_test,y_test)

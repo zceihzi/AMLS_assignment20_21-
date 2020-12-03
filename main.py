@@ -1,4 +1,5 @@
-from A1 import A1
+from A1 import A1 
+
 
 # # ======================================================================================================================
 # # Data preprocessing
@@ -36,7 +37,7 @@ from A1 import A1
 
 # # ======================================================================================================================
 # ## Print out your results with following format:
-print('TA1:{},{};TA2:{},{};TB1:{},{};TB2:{},{};'.format(A1.train_acc, A1.test_acc,
+print('TA1:{},{};TA2:{},{};TB1:{},{};TB2:{},{};'.format(A1.train_acc_LR, A1.test_acc_LR,
                                                         "acc_A2_train", "acc_A2_test",
                                                         "acc_B1_train", "acc_B1_test",
                                                         "acc_B2_train", "acc_B2_test"))
