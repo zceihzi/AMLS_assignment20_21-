@@ -60,6 +60,7 @@ def plot_data_sample(df):
         plt.xlabel(df["gender"].iloc[i])
     plt.show()
 
+
 def plot_hog_image(image):
     image = Image.open("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/celeba/img/"+image)
     fd, hog_image = hog(image, orientations=9, pixels_per_cell=(8, 8), 
@@ -82,8 +83,8 @@ def plot_eigenfaces(pca):
     gridspec_kw=dict(hspace=0.01, wspace=0.01))
     for i, ax in enumerate(axes.flat):
 #         ax.imshow(pca.components_[i].reshape(654,178),cmap="gray")
-    #     ax.imshow(projected[i].reshape(436,178),cmap="binary")
-        ax.imshow(pca.components_[i].reshape(218,178),cmap="gray")
+        ax.imshow(projected[i].reshape(436,178),cmap="binary")
+        # ax.imshow(pca.components_[i].reshape(218,178),cmap="gray")
     plt.show()
 
 
@@ -91,8 +92,8 @@ def plot_pca_projections(pca,X_train):
     projected = pca.inverse_transform(X_train)
     fig, axes = plt.subplots(2,10,figsize=(15, 3), subplot_kw={'xticks':[], 'yticks':[]},gridspec_kw=dict(hspace=0.01, wspace=0.01))
     for i, ax in enumerate(axes.flat):
-        ax.imshow(projected[i].reshape(218,178),cmap="binary")
-    #     ax.imshow(projected[i].reshape(436,178),cmap="binary")
+        # ax.imshow(projected[i].reshape(218, 178),cmap="binary")
+        ax.imshow(projected[i].reshape(436,178),cmap="binary")
     #     ax.imshow(projected[i].reshape(654,178),cmap="gray")
     plt.show()
 
@@ -104,6 +105,8 @@ def plot_confusion_matrix(y_test,y_pred):
     x_axis_labels = ['Actual Female','Actual Male'] # labels for x-axis
     y_axis_labels = ['Predicted Female','Predicted Male'] # labels for y-axis
     sns.heatmap(df_cm_LR, annot=True,xticklabels=x_axis_labels, yticklabels=y_axis_labels)
+    plt.show()
+
 
 def plot_ROC(model,auc_roc,X_test,y_test):
     y_pred_proba = model.predict_proba(X_test)[:,1]
@@ -206,16 +209,18 @@ def load_A1_data():
     df = df.drop(df.columns[[2]], axis=1)
     return df 
 
+
 def data_partition(df, extraction:str = ""):
     X = pd.DataFrame(df["img_name"].values)
     y = pd.Series(df["gender"].values)
 
     X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=.20,random_state=12039393)
-    X_train = create_feature_matrix(X_train[0],extraction)
-    X_test = create_feature_matrix(X_test[0],extraction)
 
-    # X_train = joblib.load("X_train_fusion.pkl")
-    # X_test = joblib.load("X_test_fusion.pkl")
+    # X_train = create_feature_matrix(X_train[0],extraction)
+    # X_test = create_feature_matrix(X_test[0],extraction)
+
+    X_train = joblib.load("X_train_combined.pkl")
+    X_test = joblib.load("X_test_combined.pkl")
     
     # look at the distrubution of labels in the train set
 #     print(pd.Series(y_train).value_counts())
@@ -493,37 +498,31 @@ def train_test(model,X_train,y_train,X_test,y_test):
 # Load csv, extract coma separated values for rows and columns to create a clean dataframe
 df = load_A1_data()
 # plot_data_sample(df)
-# X_train, X_test, y_train, y_test = data_partition(df,"combined")
-
-# to save it
-# X_train_file="X_train_hog.pkl"  
-# joblib.dump(X_train, X_train_file)
-# X_test_file="X_test_hog.pkl"  
-# joblib.dump(X_test, X_test_file)
+X_train, X_test, y_train, y_test = data_partition(df,"combined")
 
 # X_train, X_test,pca = apply_pca(X_train,X_test,plot=False)
 # plot_eigenfaces(pca)
 # plot_pca_projections(pca,X_train)
 
 
-# # Run this code to return results for Logistic regression
-# LR = LogisticRegression(C=0.01, max_iter=1500, solver='liblinear')
+# Run this code to return results for Logistic regression
+LR =  LogisticRegression(C=0.001, max_iter=1500, solver='saga')
 # plot_learning_curve (LR,"Learning curve for LR",X_train,y_train)
-# # grid_search_tuning("LR",X_train,y_train)
-# y_pred_LR,train_acc_LR,test_acc_LR, LR = train_test(LR,X_train,y_train,X_test,y_test)
-# auc_roc_LR= roc_auc_score(y_test,y_pred_LR)
+# grid_search_tuning("LR",X_train,y_train)
+y_pred_LR,train_acc_LR,test_acc_LR, LR = train_test(LR,X_train,y_train,X_test,y_test)
+auc_roc_LR= roc_auc_score(y_test,y_pred_LR)
 # plot_ROC(LR,auc_roc_LR,X_test,y_test)
 # plot_confusion_matrix(y_test,y_pred_LR)
 
 
 # # Run this code to return results for Support Vector Machines
-# SVM = SVC(C=9, gamma=1e-05, kernel='linear',probability=True)
-# plot_learning_curve (LR,"Learning curve for SVM",X_train,y_train)
+# SVM =  SVC(C=1, gamma=1e-05, kernel='sigmoid',probability=True)
+# # plot_learning_curve (SVM,"Learning curve for SVM",X_train,y_train)
 # # grid_search_tuning("SVM",X_train,y_train)
 # y_pred_SVM,train_acc_SVM,test_acc_SVM, SVM = train_test(SVM,X_train,y_train,X_test,y_test)
 # auc_roc_SVM= roc_auc_score(y_test,y_pred_SVM)
-# plot_ROC(SVM,auc_roc_SVM,X_test,y_test)
-# plot_confusion_matrix(y_test,y_pred_SVM)
+# # plot_ROC(SVM,auc_roc_SVM,X_test,y_test)
+# # plot_confusion_matrix(y_test,y_pred_SVM)
 
 
 # # Run this code to return results for KNN
@@ -536,11 +535,11 @@ df = load_A1_data()
 # plot_confusion_matrix(y_test,y_pred_KNN)
 
 
-# Run this code to return results for CNN
-X_train, X_test,X_val,y_train, y_test, y_val = data_partition_validate(df,"unchanged")
-history, model,epoch = train_validate_CNN(epoch=15)
-CNN_learning_curve(history)
-y_pred_CNN = CNN_predict()
-plot_confusion_matrix(y_test,y_pred_CNN)
-auc_roc_CNN= roc_auc_score(y_test,y_pred_CNN)
-plot_ROC(model,auc_roc_CNN,X_test,y_test)
+# # Run this code to return results for CNN
+# X_train, X_test,X_val,y_train, y_test, y_val = data_partition_validate(df,"unchanged")
+# history, model,epoch = train_validate_CNN(epoch=15)
+# CNN_learning_curve(history)
+# y_pred_CNN = CNN_predict()
+# plot_confusion_matrix(y_test,y_pred_CNN)
+# auc_roc_CNN= roc_auc_score(y_test,y_pred_CNN)
+# plot_ROC(model,auc_roc_CNN,X_test,y_test)

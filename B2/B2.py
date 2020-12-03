@@ -22,6 +22,7 @@ from sklearn.svm import LinearSVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV,learning_curve,ShuffleSplit
+from sklearn.cluster import KMeans
 
 # Used to visualise and process images for better performance 
 import matplotlib.pyplot as plt
@@ -49,32 +50,31 @@ from keras.layers import Conv2D, MaxPooling2D
 from keras.layers import Activation, Dropout, Flatten, Dense
 
 
-def plot_data_sample(df):
-    plt.figure(figsize=(10,10))
-    for i in range(25):
-        plt.subplot(5,5,i+1)
-        plt.xticks([])
-        plt.yticks([])
-        plt.grid(False)
-        plt.imshow(df["img_name"].iloc[i])
-        plt.xlabel(df["smiling"].iloc[i])
-    plt.show()
+def plot_mean_image():
+# Access all PNG files in directory
+    path = "/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/cartoon_set/img/"
+    allfiles=os.listdir(path)
+    imlist=[filename for filename in allfiles]
+    N=len(imlist)
 
-def plot_hog_image(image):
-    image = Image.open("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/celeba/img/"+image)
-    fd, hog_image = hog(image, orientations=9, pixels_per_cell=(8, 8), 
-                    cells_per_block=(2, 2), visualize=True, multichannel=True)
+    # Assuming all images are the same size, get dimensions of first image
+    w,h=Image.open(path+imlist[0]).size
 
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True) 
-    ax1.imshow(image) 
-    ax1.set_title('Input image') 
+    # Create a numpy array of floats to store the average (assume RGB images)
+    arr=np.zeros((h,w,3),np.float)
 
-    # Rescale histogram for better display 
-    hog_image_rescaled = exposure.rescale_intensity(hog_image, in_range=(0, 10)) 
-    ax2.imshow(hog_image_rescaled) 
-    ax2.set_title('Histogram of Oriented Gradients')
-    plt.show()
+    # Build up average pixel intensities, casting each image as an array of floats
+    for im in imlist:
+        imarr=np.array(Image.open(path+im).convert('RGB'),dtype=np.float)
+        arr=arr+imarr/N
 
+    # Round values in array and cast as 8-bit integer
+    arr=np.array(np.round(arr),dtype=np.uint8)
+
+    # Generate, save and preview final image
+    out=Image.fromarray(arr,mode="RGB")
+    plt.imshow(out)
+    
     
 def plot_eigenfaces(pca):
     fig, axes = plt.subplots(2,10,figsize=(15,3),
@@ -95,8 +95,8 @@ def plot_pca_projections(pca,X_train):
     #     ax.imshow(projected[i].reshape(436,178),cmap="binary")
     #     ax.imshow(projected[i].reshape(654,178),cmap="gray")
     plt.show()
-
-
+    
+    
 def plot_confusion_matrix(y_test,y_pred):
     cm_LR=confusion_matrix(y_test,y_pred)
     df_cm_LR = pd.DataFrame(cm_LR, index = [i for i in "cm"],columns = [i for i in "cm"])
@@ -120,7 +120,6 @@ def plot_ROC(model,auc_roc,X_test,y_test):
     ax.set_title('Receiver operating characteristic example')
     ax.legend(loc="lower right")
     plt.show()
-
 
 def plot_learning_curve(estimator, title, X, y, axes=None, ylim=None, cv=3,
                         n_jobs=None, train_sizes=np.linspace(.1, 1.0, 5)):
@@ -169,25 +168,106 @@ def plot_learning_curve(estimator, title, X, y, axes=None, ylim=None, cv=3,
     return plt
 
 
-def plot_lbp_image(image):
-    img = cv2.imread("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/celeba/img/"+image, 1) 
-    img_lbp = create_lbp_features(img)
-    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True) 
-    ax1.imshow(img, cmap=plt.cm.gray) 
-    ax1.set_title('Input image') 
-    ax2.imshow(img_lbp, cmap=plt.cm.gray) 
+def plot_glass__filter_efficiency(df):
+    temp =df[df.glasses == 2]
+    fig, axes = plt.subplots(20,20,figsize=(9,9), subplot_kw={'xticks':[], 'yticks':[]},
+                gridspec_kw=dict(hspace=0.01, wspace=0.01))
+    for i, ax in enumerate(axes.flat):
+        ax.imshow(temp["file_name"].values[i])
+    
     plt.show()
 
+def plot_data_sample(df):
+    plt.figure(figsize=(10,10))
+    for i in range(25):
+        plt.subplot(5,5,i+1)
+        plt.xticks([])
+        plt.yticks([])
+        plt.grid(False)
+        plt.imshow(df["file_name"].iloc[i])
+        plt.xlabel(df["eye_color"].iloc[i])
+    plt.show()
 
-def load_A2_data():
-    '''
-    == Input ==
-    gray_image  : color image of shape (height, width)
     
-    == Output ==  
-    imgLBP : LBP converted image of the same shape as 
-    '''
-    df= pd.read_csv("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/celeba/labels.csv")
+def crop_images(image):
+    img = Image.open("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/cartoon_set/img/"+str(image)).convert('RGB')
+    # Setting the points for cropped image 
+    left = 160
+    top = 200
+    right = 340
+    bottom = 300
+    # Cropped image of above dimension 
+    # (It will not change orginal image) 
+    cropped = img.crop((left, top, right, bottom))
+    return cropped
+
+def find_eye(image):
+    img = Image.open("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/cartoon_set/img/"+str(image)).convert('RGB')
+    # Setting the points for cropped image 
+    left = 170
+    top = 230
+    right = 240
+    bottom = 300
+    # Cropped image of above dimension 
+    # (It will not change orginal image) 
+    cropped = img.crop((left, top, right, bottom))
+#     plt.imshow(cropped, cmap=plt.cm.binary)
+    cropped = np.array(cropped)
+    fd, hog_image = hog(cropped, orientations=9, pixels_per_cell=(8, 8), 
+                    cells_per_block=(2, 2), visualize=True, multichannel=True, block_norm = "L2-Hys")
+    hog_image_rescaled = exposure.rescale_intensity(hog_image, in_range=(0, 10))
+# get all non black Pixels
+    return hog_image_rescaled
+
+def add_glass_label(df,plot:bool=False):
+    cropped_images = []
+    temp = []
+    images = original_dataset["file_name"]
+    pbar = ProgressBar()
+    for i in pbar(images):
+        cropped_images.append(find_eye(i).flatten())
+        temp.append(find_eye(i))
+
+    cropped_images = np.array(cropped_images)    
+    
+    print(" K_means in progress to identify back glasses ...")
+    # create kmeans object
+    kmeans = KMeans(n_clusters=3)
+    # fit kmeans object to data
+    kmeans.fit(cropped_images)
+    # print location of clusters learned by kmeans object
+    print(kmeans.cluster_centers_)
+    # save new clusters for chart
+    y_km = kmeans.fit_predict(cropped_images)
+    
+    df["glasses"] = y_km
+    pd.Series(df["glasses"]).value_counts()
+    df = df[df.glasses != 2]
+    print(pd.Series(df["glasses"]).value_counts())
+    
+    if plot is True:
+        plt.figure(figsize=(10,10))
+        for i in range(25):
+            plt.subplot(5,5,i+1)
+            plt.xticks([])
+            plt.yticks([])
+            plt.grid(False)
+            plt.imshow(temp[i], cmap=plt.cm.binary)
+        plt.show()
+
+        plt.figure(figsize=(15,10))
+        for i in range(15):
+            plt.subplot(5,5,i+1)
+            plt.xticks([])
+            plt.yticks([])
+            plt.grid(False)
+            plt.imshow(df["file_name"].values[i], cmap=plt.cm.binary)
+            plt.xlabel(y_km[i])
+        plt.show()
+    return df
+
+def load_B2_data():
+    df= pd.read_csv("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/cartoon_set/labels.csv")
     rows = []
     columns = []
     for i in [df.iloc[:,0]]:
@@ -196,30 +276,39 @@ def load_A2_data():
         rows.append(data[1:4])
     for y in [df.columns[0]]:
         columns = (y.split())
-#     original_dataset = DataFrame(rows,columns=columns)
+    original_dataset = DataFrame(rows,columns=columns)
     pbar = ProgressBar()
     for i in pbar(rows):
-        i[0] = np.asarray(Image.open("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/celeba/img/"+i[0]))    
-#         i[0] = crop_faces(i[0])
-
+        i[2] = np.asarray(crop_images(i[2]))    
+        
     df = DataFrame(rows,columns=columns)
-    df["smiling"] = pd.to_numeric(df["smiling"])
-    df["smiling"] = df["smiling"].replace(-1, 0)
+    df["eye_color"] = pd.to_numeric(df["eye_color"])
     df = df.drop(df.columns[[1]], axis=1)
-    return df 
+    return df, original_dataset
+
+
+def create_feature_matrix(label_dataframe,extraction):
+    features_list = []
+    pbar = ProgressBar()
+    for img_id in pbar(label_dataframe):
+            image_features = img_id.flatten()
+            features_list.append(image_features)
+            
+    # convert list of arrays into a matrix
+    feature_matrix = np.array(features_list)
+    return feature_matrix
+
 
 def data_partition(df, extraction:str = ""):
-    X = pd.DataFrame(df["img_name"].values)
-    y = pd.Series(df["smiling"].values)
+    X = pd.DataFrame(df["file_name"].values)
+    y = pd.Series(df["eye_color"].values)
 
     X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=.20,random_state=12039393)
-    
+
     X_train = create_feature_matrix(X_train[0],extraction)
     X_test = create_feature_matrix(X_test[0],extraction)
 
-    # X_train = joblib.load("X_train_combined2.pkl")
-    # X_test = joblib.load("X_test_combined2.pkl")
-
+    
     # look at the distrubution of labels in the train set
 #     print(pd.Series(y_train).value_counts())
 #     print(pd.Series(y_test).value_counts())
@@ -229,217 +318,13 @@ def data_partition(df, extraction:str = ""):
     print("y_test has shape:", y_test.shape)
     return X_train,X_test,y_train,y_test
 
-
-def create_feature_matrix(label_dataframe,extraction):
-    features_list = []
-    pbar = ProgressBar()
-    for img_id in pbar(label_dataframe):
-        # get features for image
-        if extraction == "hog":
-            image_features = create_hog_features(img_id)
-            features_list.append(image_features)
-        if extraction == "lbp":
-            image_features = create_lbp_features(img_id).flatten()
-            features_list.append(image_features)
-        if extraction == "combined":
-            image_features = create_combined_features(img_id)
-            features_list.append(image_features)
-        if extraction == "flat":
-            image_features = rgb2gray(img_id).flatten()
-            features_list.append(image_features)
-        if extraction == "unchanged":
-            image_features = img_id/255
-            features_list.append(image_features)
-            
-    # convert list of arrays into a matrix
-    feature_matrix = np.array(features_list)
-    return feature_matrix
-
-
-def create_hog_features(img):
-    fd, hog_image = hog(img, orientations=9, pixels_per_cell=(8, 8), 
-                    cells_per_block=(2, 2), visualize=True, multichannel=True, block_norm = "L2-Hys")
-    hog_image_rescaled = exposure.rescale_intensity(hog_image, in_range=(0, 10))
-    flat_features = np.hstack(hog_image_rescaled).flatten()
-    return flat_features
-
-
-def get_pixel(img, center, x, y): 
-    adjusted_value = 0
-    try: 
-#       Set to 1 if greated than the central pixel value else set it to 0
-        if img[x][y] >= center: 
-            adjusted_value = 1
-    except: 
-#       Used to bypass the event where a pixel value is null i.e. values in boundaries. 
-        pass
-    return adjusted_value 
-
-
-def lbp_calculated_pixel(img, x, y): 
-    center = img[x][y] 
-    val_ar = [] 
-
-    # top_left 
-    val_ar.append(get_pixel(img, center, x-1, y-1)) 
-    # top 
-    val_ar.append(get_pixel(img, center, x-1, y)) 
-    # top_right 
-    val_ar.append(get_pixel(img, center, x-1, y + 1)) 
-    # right 
-    val_ar.append(get_pixel(img, center, x, y + 1)) 
-    # bottom_right 
-    val_ar.append(get_pixel(img, center, x + 1, y + 1)) 
-    # bottom 
-    val_ar.append(get_pixel(img, center, x + 1, y)) 
-    # bottom_left 
-    val_ar.append(get_pixel(img, center, x + 1, y-1)) 
-    # left 
-    val_ar.append(get_pixel(img, center, x, y-1)) 
-
-    # Now, we need to convert binary values to decimal 
-    power_val = [1, 2, 4, 8, 16, 32, 64, 128] 
-    val = 0
-    for i in range(len(val_ar)): 
-        val += val_ar[i] * power_val[i] 
-    return val 
-
-
-def create_lbp_features(img):
-    height, width, _ = img.shape 
-#   Convert to graysclae beacause the has only one channel . 
-    img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) 
-#   Get array of  same height and width as the RGB image 
-    img_lbp = np.zeros((height, width), np.uint8) 
-    for i in range(0, height): 
-        for j in range(0, width): 
-            img_lbp[i, j] = lbp_calculated_pixel(img_gray, i, j) 
-    return img_lbp
-
-
-def data_partition_validate(df,extraction):
-    X = pd.DataFrame(df["img_name"].values)
-    y = pd.Series(df["smiling"].values)
-    X_train, X_test, y_train, y_test = train_test_split(X,
-                                                        y,
-                                                        test_size=.20,
-                                                        random_state=1234123)
-    X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=1)
-    
-    X_train = create_feature_matrix(X_train[0],extraction)
-    X_test = create_feature_matrix(X_test[0],extraction)
-    X_val = create_feature_matrix(X_val[0],extraction)
-
-    # look at the distrubution of labels in the train set
-    print("X_train has shape:", X_train.shape)
-    print("y_train has shape:", y_train.shape)
-    print("")
-    print("X_test has shape:", X_test.shape)
-    print("y_test has shape:", y_test.shape)
-    print("")
-    print("X_val has shape:", X_val.shape)
-    print("y_val has shape:", y_val.shape)
-    
-    return X_train,X_test,X_val,y_train,y_test,y_val
-
-
-def train_validate_CNN(summary:bool=False, epoch:int=15):
-    
-    model = Sequential()
-    model.add(Conv2D(16, 3, input_shape=(218,178 ,3)))
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D())
-
-    model.add(Conv2D(32, 3))
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D())
-
-    model.add(Conv2D(64, 3))
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D())
-
-    model.add(Conv2D(128, 3))
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D())
-
-    model.add(Conv2D(256, 3))
-    model.add(Activation('relu'))
-    model.add(MaxPooling2D())
-
-    model.add(Flatten())  # this converts our 3D feature maps to 1D feature vectors
-    model.add(Dense(256))
-    keras.layers.Dropout(0.5),
-
-    model.add(Activation('relu'))
-    model.add(Dense(2))
-    keras.layers.Dropout(0.5),
-    model.add(Activation('softmax'))
-
-    model.compile(loss='binary_crossentropy',
-                 optimizer='adam',
-                 metrics=['accuracy'])
-
-    if summary == True:
-        # Take a look at the model summary
-        model.summary()
-
-    history = model.fit(X_train, to_categorical(y_train.values.ravel()), epochs=epoch, 
-                        validation_data=(X_val, to_categorical(y_val.values.ravel())))
-
-    return history, model,epoch
-
-
-def CNN_learning_curve(history):
-    acc = history.history['accuracy']
-    val_acc = history.history['val_accuracy']
-
-    loss = history.history['loss']
-    val_loss = history.history['val_loss']
-
-    epochs_range = range(15)
-
-    plt.figure(figsize=(8, 8))
-    plt.subplot(1, 2, 1)
-    plt.plot(epochs_range, acc, label='Training Accuracy')
-    plt.plot(epochs_range, val_acc, label='Validation Accuracy')
-    plt.legend(loc='lower right')
-    plt.title('Training and Validation Accuracy')
-
-    plt.subplot(1, 2, 2)
-    plt.plot(epochs_range, loss, label='Training Loss')
-    plt.plot(epochs_range, val_loss, label='Validation Loss')
-    plt.legend(loc='upper right')
-    plt.title('Training and Validation Loss')
-    plt.show()
-    
-def CNN_predict():
-    y_pred = model.predict(X_test)
-    class_names=[0, 1]
-    score = tf.nn.softmax(y_pred[0])
-    temp = []
-    for i in y_pred:
-        score = tf.nn.softmax(i)
-        i = class_names[np.argmax(score)]
-        temp.append(i)
-    return temp
-
-    
-def create_combined_features(img):
-    fd, hog_image = hog(img, orientations=9, pixels_per_cell=(8, 8), 
-                    cells_per_block=(2, 2), visualize=True, multichannel=True, block_norm = "L2-Hys")
-    hog_image_rescaled = exposure.rescale_intensity(hog_image, in_range=(0, 10))
-    LBP = create_lbp_features(img)/255
-    feat = np.hstack([LBP, hog_image_rescaled]).flatten()
-    return feat
-
-
 def apply_pca(X_train,X_test,plot:bool=False):
     ss = StandardScaler()
     ss = ss.fit(X_train)
     X_train = ss.transform(X_train)
     X_test = ss.transform(X_test)
     
-    pca = PCA(n_components = 3200)
+    pca = PCA(n_components = 100)
     pca = pca.fit(X_train)
 
     print('Initial train matrix shape is: ', X_train.shape)
@@ -473,7 +358,7 @@ def grid_search_tuning(model,X_train,y_train):
     print("Best Parameters:\n", tuned_model.best_params_)
     print("Best Estimators:\n", tuned_model.best_estimator_)
         
-
+        
 def train_test(model,X_train,y_train,X_test,y_test):
     model = model
     model.fit(X_train, y_train)
@@ -492,18 +377,23 @@ def train_test(model,X_train,y_train,X_test,y_test):
     return y_pred,train_acc,test_acc, model
 
 
-# Load csv, extract coma separated values for rows and columns to create a clean dataframe
-df = load_A2_data()
-# plot_data_sample(df)
-X_train, X_test, y_train, y_test = data_partition(df,"lbp")
 
+df,original_dataset = load_B2_data()
+plot_data_sample(df)
+plot_mean_image()
+
+df = add_glass_label(df,plot=False)
+plot_glass__filter_efficiency(df)
+
+X_train, X_test, y_train, y_test = data_partition(df)
 X_train, X_test,pca = apply_pca(X_train,X_test,plot=False)
 # plot_eigenfaces(pca)
 # plot_pca_projections(pca,X_train)
 
 
-# # Run this code to return results for Logistic regression
-LR =  LogisticRegression(C=0.001, max_iter=1500, solver='newton-cg')
+
+# Run this code to return results for Logistic regression
+LR =  LogisticRegression(C=0.001, max_iter=1500, solver='saga')
 # plot_learning_curve (LR,"Learning curve for LR",X_train,y_train)
 # grid_search_tuning("LR",X_train,y_train)
 y_pred_LR,train_acc_LR,test_acc_LR, LR = train_test(LR,X_train,y_train,X_test,y_test)
@@ -513,13 +403,13 @@ auc_roc_LR= roc_auc_score(y_test,y_pred_LR)
 
 
 # # Run this code to return results for Support Vector Machines
-# SVM = SVC(C=1, gamma=1e-05, kernel='sigmoid',probability=True)
-# plot_learning_curve (SVM,"Learning curve for SVM",X_train,y_train)
+# SVM =  SVC(C=1, gamma=1e-05, kernel='sigmoid',probability=True)
+# # plot_learning_curve (SVM,"Learning curve for SVM",X_train,y_train)
 # # grid_search_tuning("SVM",X_train,y_train)
 # y_pred_SVM,train_acc_SVM,test_acc_SVM, SVM = train_test(SVM,X_train,y_train,X_test,y_test)
 # auc_roc_SVM= roc_auc_score(y_test,y_pred_SVM)
-# plot_ROC(SVM,auc_roc_SVM,X_test,y_test)
-# plot_confusion_matrix(y_test,y_pred_SVM)
+# # plot_ROC(SVM,auc_roc_SVM,X_test,y_test)
+# # plot_confusion_matrix(y_test,y_pred_SVM)
 
 
 # # Run this code to return results for KNN
