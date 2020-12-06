@@ -181,13 +181,7 @@ def plot_lbp_image(image):
 
 
 def load_A1_data():
-    '''
-    == Input ==
-    gray_image  : color image of shape (height, width)
-    
-    == Output ==  
-    imgLBP : LBP converted image of the same shape as 
-    '''
+
     df= pd.read_csv("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/celeba/labels.csv")
     rows = []
     columns = []
@@ -214,13 +208,10 @@ def data_partition(df, extraction:str = ""):
     X = pd.DataFrame(df["img_name"].values)
     y = pd.Series(df["gender"].values)
 
-    X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=.20,random_state=12039393)
+    X_train, X_test, y_train, y_test = train_test_split(X,y,test_size= .20,random_state=50)
 
-    # X_train = create_feature_matrix(X_train[0],extraction)
-    # X_test = create_feature_matrix(X_test[0],extraction)
-
-    X_train = joblib.load("X_train_combined.pkl")
-    X_test = joblib.load("X_test_combined.pkl")
+    X_train = create_feature_matrix(X_train[0],extraction)
+    X_test = create_feature_matrix(X_test[0],extraction)
     
     # look at the distrubution of labels in the train set
 #     print(pd.Series(y_train).value_counts())
@@ -500,7 +491,7 @@ df = load_A1_data()
 # plot_data_sample(df)
 X_train, X_test, y_train, y_test = data_partition(df,"combined")
 
-# X_train, X_test,pca = apply_pca(X_train,X_test,plot=False)
+X_train, X_test,pca = apply_pca(X_train,X_test,plot=False)
 # plot_eigenfaces(pca)
 # plot_pca_projections(pca,X_train)
 
