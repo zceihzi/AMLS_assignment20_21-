@@ -60,7 +60,6 @@ def plot_data_sample(df):
         plt.xlabel(df["gender"].iloc[i])
     plt.show()
 
-
 def plot_hog_image(image):
     image = Image.open("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/celeba/img/"+image)
     fd, hog_image = hog(image, orientations=9, pixels_per_cell=(8, 8), 
@@ -83,8 +82,8 @@ def plot_eigenfaces(pca):
     gridspec_kw=dict(hspace=0.01, wspace=0.01))
     for i, ax in enumerate(axes.flat):
 #         ax.imshow(pca.components_[i].reshape(654,178),cmap="gray")
-        ax.imshow(projected[i].reshape(436,178),cmap="binary")
-        # ax.imshow(pca.components_[i].reshape(218,178),cmap="gray")
+    #     ax.imshow(projected[i].reshape(436,178),cmap="binary")
+        ax.imshow(pca.components_[i].reshape(218,178),cmap="gray")
     plt.show()
 
 
@@ -92,8 +91,8 @@ def plot_pca_projections(pca,X_train):
     projected = pca.inverse_transform(X_train)
     fig, axes = plt.subplots(2,10,figsize=(15, 3), subplot_kw={'xticks':[], 'yticks':[]},gridspec_kw=dict(hspace=0.01, wspace=0.01))
     for i, ax in enumerate(axes.flat):
-        # ax.imshow(projected[i].reshape(218, 178),cmap="binary")
-        ax.imshow(projected[i].reshape(436,178),cmap="binary")
+        ax.imshow(projected[i].reshape(218,178),cmap="binary")
+    #     ax.imshow(projected[i].reshape(436,178),cmap="binary")
     #     ax.imshow(projected[i].reshape(654,178),cmap="gray")
     plt.show()
 
@@ -105,7 +104,6 @@ def plot_confusion_matrix(y_test,y_pred):
     x_axis_labels = ['Actual Female','Actual Male'] # labels for x-axis
     y_axis_labels = ['Predicted Female','Predicted Male'] # labels for y-axis
     sns.heatmap(df_cm_LR, annot=True,xticklabels=x_axis_labels, yticklabels=y_axis_labels)
-    plt.show()
 
 
 def plot_ROC(model,auc_roc,X_test,y_test):
@@ -181,7 +179,13 @@ def plot_lbp_image(image):
 
 
 def load_A1_data():
-
+    '''
+    == Input ==
+    gray_image  : color image of shape (height, width)
+    
+    == Output ==  
+    imgLBP : LBP converted image of the same shape as 
+    '''
     df= pd.read_csv("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/celeba/labels.csv")
     rows = []
     columns = []
@@ -203,16 +207,18 @@ def load_A1_data():
     df = df.drop(df.columns[[2]], axis=1)
     return df 
 
-
 def data_partition(df, extraction:str = ""):
     X = pd.DataFrame(df["img_name"].values)
     y = pd.Series(df["gender"].values)
 
-    X_train, X_test, y_train, y_test = train_test_split(X,y,test_size= .20,random_state=50)
-
-    X_train = create_feature_matrix(X_train[0],extraction)
-    X_test = create_feature_matrix(X_test[0],extraction)
+    X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=.20,random_state=12039393)
     
+#     X_train = create_feature_matrix(X_train[0],extraction)
+#     X_test = create_feature_matrix(X_test[0],extraction)
+
+    X_train = joblib.load("X_train_combined.pkl")
+    X_test = joblib.load("X_test_combined.pkl")
+
     # look at the distrubution of labels in the train set
 #     print(pd.Series(y_train).value_counts())
 #     print(pd.Series(y_test).value_counts())
@@ -310,7 +316,7 @@ def create_lbp_features(img):
     return img_lbp
 
 
-def data_partition_validate(df,extraction):
+def data_partition_validate(df,extraction,augmentation=False):
     X = pd.DataFrame(df["img_name"].values)
     y = pd.Series(df["gender"].values)
     X_train, X_test, y_train, y_test = train_test_split(X,
@@ -318,6 +324,9 @@ def data_partition_validate(df,extraction):
                                                         test_size=.20,
                                                         random_state=1234123)
     X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=1)
+    
+    if augmentation is True:
+        X_train,y_train = image_generator(X_train,y_train)
     
     X_train = create_feature_matrix(X_train[0],extraction)
     X_test = create_feature_matrix(X_test[0],extraction)
@@ -340,22 +349,27 @@ def train_validate_CNN(summary:bool=False, epoch:int=15):
     
     model = Sequential()
     model.add(Conv2D(16, 3, input_shape=(218,178 ,3)))
+    keras.layers.Dropout(0.5),
     model.add(Activation('relu'))
     model.add(MaxPooling2D())
 
     model.add(Conv2D(32, 3))
+    keras.layers.Dropout(0.5),
     model.add(Activation('relu'))
     model.add(MaxPooling2D())
 
     model.add(Conv2D(64, 3))
+    keras.layers.Dropout(0.5),
     model.add(Activation('relu'))
     model.add(MaxPooling2D())
 
     model.add(Conv2D(128, 3))
+    keras.layers.Dropout(0.5),
     model.add(Activation('relu'))
     model.add(MaxPooling2D())
 
     model.add(Conv2D(256, 3))
+    keras.layers.Dropout(0.5),
     model.add(Activation('relu'))
     model.add(MaxPooling2D())
 
@@ -382,16 +396,16 @@ def train_validate_CNN(summary:bool=False, epoch:int=15):
     return history, model,epoch
 
 
-def CNN_learning_curve(history):
+def CNN_learning_curve(history,epoch):
     acc = history.history['accuracy']
     val_acc = history.history['val_accuracy']
 
     loss = history.history['loss']
     val_loss = history.history['val_loss']
 
-    epochs_range = range(15)
+    epochs_range = range(epoch)
 
-    plt.figure(figsize=(8, 8))
+    plt.figure(figsize=(16, 4))
     plt.subplot(1, 2, 1)
     plt.plot(epochs_range, acc, label='Training Accuracy')
     plt.plot(epochs_range, val_acc, label='Validation Accuracy')
@@ -451,11 +465,11 @@ def grid_search_tuning(model,X_train,y_train):
     print("Hyperparameter Tuning using 5-folds validation")
     if model == "SVM":
         grid= {'kernel':('linear', 'sigmoid'), 'C': [0.1, 1, 10, 100], 
-                'gamma': [0.01, 0.001,0.0001,0.00001]}
+                   'gamma': [0.01, 0.001,0.0001,0.00001]}
         tuned_model = GridSearchCV(SVC(), grid, verbose=1)
         tuned_model.fit(X_train, y_train)
     if model == "LR":
-        grid = {'C':[0.001,.009,0.01,.09,1],'solver':['newton-cg', 'lbfgs', 'liblinear', 'sag', 'saga']}
+        grid ={'C':[0.001,.009,0.01,.09,1],'solver':['newton-cg', 'lbfgs', 'liblinear', 'sag', 'saga']}
         tuned_model = GridSearchCV(LogisticRegression(max_iter = 1500), grid, verbose=1)
         tuned_model.fit(X_train, y_train)
     if model == "KNN":
@@ -484,6 +498,31 @@ def train_test(model,X_train,y_train,X_test,y_test):
     print(classification_report(y_test, y_pred))
     return y_pred,train_acc,test_acc, model
 
+def image_generator(X_train,y_train):
+
+    augmentation =ImageDataGenerator(
+    rotation_range=10,
+    width_shift_range=0.25,
+    height_shift_range=0.25,
+    shear_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True
+    )
+    augmented_arr = []
+    augmented_labels = []
+
+    for arr,label in zip(np.array(X_train.iloc[0:4000,:]), np.array(y_train.iloc[0:4000])):
+        aug_iter = augmentation.flow(np.expand_dims(arr[0],0))
+        aug_images = [next(aug_iter)[0].astype(np.uint8) for i in range(2)]
+        for i in aug_images:
+            augmented_arr.append([i])
+            augmented_labels.append(label)   
+
+    augmented_arr = DataFrame(augmented_arr)
+    augmented_labels = DataFrame(augmented_labels)
+    X_train = pd.concat([X_train,augmented_arr])
+    y_train = pd.concat([y_train,augmented_labels])
+    return X_train,y_train
 
 
 # Load csv, extract coma separated values for rows and columns to create a clean dataframe
@@ -527,10 +566,11 @@ auc_roc_LR= roc_auc_score(y_test,y_pred_LR)
 
 
 # # Run this code to return results for CNN
-# X_train, X_test,X_val,y_train, y_test, y_val = data_partition_validate(df,"unchanged")
-# history, model,epoch = train_validate_CNN(epoch=15)
-# CNN_learning_curve(history)
+# X_train, X_test,X_val,y_train, y_test, y_val = data_partition_validate(df,"unchanged", augmentation=False)
+# history, model,epoch = train_validate_CNN(epoch=6)
+# CNN_learning_curve(history,6)
 # y_pred_CNN = CNN_predict()
 # plot_confusion_matrix(y_test,y_pred_CNN)
 # auc_roc_CNN= roc_auc_score(y_test,y_pred_CNN)
 # plot_ROC(model,auc_roc_CNN,X_test,y_test)
+# print(classification_report(y_test, y_pred_CNN))

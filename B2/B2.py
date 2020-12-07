@@ -523,7 +523,7 @@ plot_confusion_matrix(y_test,y_pred_LR)
 # plot_learning_curve (KNN,"Learning curve for KNN",X_train,y_train)
 # # grid_search_tuning("KNN",X_train,y_train)
 # y_pred_KNN,train_acc_KNN,test_acc_KNN, KNN = train_test(KNN,X_train,y_train,X_test,y_test)
-# auc_roc_KNN= roc_auc_score(y_test,y_pred_KNN)
+# auc_roc_KNN= roc_auc_score(y_test,y_pred_LBPKNN)
 # plot_ROC(KNN,auc_roc_KN,X_test,y_test)
 # plot_confusion_matrix(y_test,y_pred_KNN)
 
