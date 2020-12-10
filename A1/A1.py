@@ -47,10 +47,10 @@ from keras.layers import Activation, Dropout, Flatten, Dense
 
 def plot_data_sample(df):
     """
-    Generates a visualisation of the dataset by plotting a sampleof 10images with their label. 
+    Generates a visualisation of the dataset by plotting a sample of 10 images with their label. 
     ----------
     Parameters:
-    df: The preprocessed dataframe where image were opened and converted into vectors
+    df: The preprocessed dataframe where images were opened and converted into vectors
     ----------
     """ 
     plt.figure(figsize=(10,10))
@@ -137,7 +137,7 @@ def plot_ROC(model,auc_roc,X_test,y_test):
     ----------
     Parameters:
     model: The model defined to solve the classification problem
-    auc_roc: The area under the curve calculated from comparing the classifier's prediction and the actual lables
+    auc_roc: The area under the curve calculated from comparing the classifier's prediction and the actual labels
     X_test: Vectorised images of the holdout set that has never been used 
     y_test: An array containing the actual label of each test image
     ----------
@@ -157,7 +157,7 @@ def plot_ROC(model,auc_roc,X_test,y_test):
 
 def plot_learning_curve(estimator, title, X, y):
     """
-    Generates a plot the training and validation curves during training
+    Generates a plot of the training and validation curves during training
     ----------
     Parameters:
     estimator: The model defined to solve the classification problem
@@ -214,11 +214,45 @@ def plot_lbp_image(image):
     ax1.set_title('Input image') 
     ax2.imshow(img_lbp, cmap=plt.cm.gray) 
     plt.show()
-    plt.ion()
+
+def image_generator(X_train,y_train):
+    """
+    This function uses the training set to generate synthetic images using rotation and other augmentation techniques.
+    A new Training set and labels are returned including the new images.
+    ----------
+    Parameters: 
+    X_train: The train set of the given data
+    y_train: The labels corresponding to X_train
+    ----------
+    """
+    augmentation =ImageDataGenerator(
+    rotation_range=10,
+    width_shift_range=0.25,
+    height_shift_range=0.25,
+    shear_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True
+    )
+    augmented_arr = []
+    augmented_labels = []
+
+    for arr,label in zip(np.array(X_train.iloc[0:4000,:]), np.array(y_train.iloc[0:4000])):
+        aug_iter = augmentation.flow(np.expand_dims(arr[0],0))
+        aug_images = [next(aug_iter)[0].astype(np.uint8) for i in range(2)]
+        for i in aug_images:
+            augmented_arr.append([i])
+            augmented_labels.append(label)   
+
+    augmented_arr = DataFrame(augmented_arr)
+    augmented_labels = DataFrame(augmented_labels)
+    X_train = pd.concat([X_train,augmented_arr])
+    y_train = pd.concat([y_train,augmented_labels])
+    return X_train,y_train
 
 def load_A1_data(folder):
     """
-    Converts and generates a plot of the transformation of an image using LBP descriptors
+    This function loads the raw csv provided and extracts the label of interest given what task we are solving.
+    It returns a dataframe with a vectorised image of shape (218,178,3) and their corresponding label
     ----------
     Parameters:
     folder: A string that refers to the name of teh folder we want to use. Eg: "celeba"/"celeba_test"/"cartoon_set"/"cartoon_set_test"
@@ -237,7 +271,6 @@ def load_A1_data(folder):
     pbar = ProgressBar()
     for i in pbar(rows):
         i[0] = np.asarray(Image.open("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/celeba/img/"+i[0]))    
-#         i[0] = crop_faces(i[0])
 
     df = DataFrame(rows,columns=columns)
     df["gender"] = pd.to_numeric(df["gender"])
@@ -260,11 +293,11 @@ def data_partition(df, extraction:str = ""):
 
     X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=.20,random_state=12039393)
     
-    # X_train = create_feature_matrix(X_train[0],extraction)
-    # X_test = create_feature_matrix(X_test[0],extraction)
+    X_train = create_feature_matrix(X_train[0],extraction)
+    X_test = create_feature_matrix(X_test[0],extraction)
 
-    X_train = joblib.load("X_train_TaskA.pkl")
-    X_test = joblib.load("X_test_TaskA.pkl")
+    # X_train = joblib.load("X_train_TaskA.pkl")
+    # X_test = joblib.load("X_test_TaskA.pkl")
 
     print("Overall class distribution in this dataset")
     print(pd.Series(y_train).value_counts())
@@ -312,6 +345,20 @@ def create_feature_matrix(label_dataframe,extraction):
     feature_matrix = np.array(features_list)
     return feature_matrix
 
+def create_combined_features(img):
+    """
+    Extracts both HOG and LBP descriptors and creates feature vectors that combine the information of both feature types
+    ----------
+    Parameters:
+    img: A vectorised image of typically 3 dimensions in our case
+    ----------
+    """
+    fd, hog_image = hog(img, orientations=9, pixels_per_cell=(8, 8), 
+                    cells_per_block=(2, 2), visualize=True, multichannel=True, block_norm = "L2-Hys")
+    hog_image_rescaled = exposure.rescale_intensity(hog_image, in_range=(0, 10))
+    LBP = create_lbp_features(img)/255
+    feat = np.hstack([LBP, hog_image_rescaled]).flatten()
+    return feat
 
 def create_hog_features(img):
     """
@@ -330,7 +377,7 @@ def create_hog_features(img):
 
 def get_pixel(img, center, x, y): 
     """
-    Consists of one main step of lbp extraction. Compares value of pixel to a central pixel and assigns 0 or 1. 
+    Consists of the main step of lbp extraction. Compares value of pixel to a central pixel and assigns 0 or 1. 
     ----------
     Parameters: (Please not that this function is used by the create_lbp_features. It does not need to be used separately.
                 Arguments will therefore automatically be populated when used inside the other function)
@@ -349,7 +396,6 @@ def get_pixel(img, center, x, y):
 #       Used to bypass the event where a pixel value is null i.e. values in boundaries. 
         pass
     return adjusted_value 
-
 
 def lbp_calculated_pixel(img, x, y): 
     """
@@ -388,7 +434,6 @@ def lbp_calculated_pixel(img, x, y):
         val += val_ar[i] * power_val[i] 
     return val 
 
-
 def create_lbp_features(img):
     """
     Uses the above function to generate lbp features for a given image.
@@ -406,7 +451,6 @@ def create_lbp_features(img):
         for j in range(0, width): 
             img_lbp[i, j] = lbp_calculated_pixel(img_gray, i, j) 
     return img_lbp
-
 
 def data_partition_validate(df,extraction,augmentation=False):
     """
@@ -450,7 +494,7 @@ def data_partition_validate(df,extraction,augmentation=False):
 
 def train_validate_CNN(summary:bool=False, epoch:int=15):
     """
-   This function defines our CNN as well as trains it using a validation set.
+    This function defines our CNN as well as trains it using a validation set.
     ----------
     Parameters:
     summary: A boolean that specifies if a model summary needs to be shown
@@ -463,7 +507,6 @@ def train_validate_CNN(summary:bool=False, epoch:int=15):
     min_delta=0.01, 
     mode='max'
     )
-
     model = Sequential()
     model.add(Conv2D(16, 3, input_shape=(218,178 ,3)))
     keras.layers.Dropout(0.5),
@@ -515,13 +558,18 @@ def train_validate_CNN(summary:bool=False, epoch:int=15):
 
 
 def CNN_learning_curve(history,epoch):
-
+    """
+    This function plots the learning curve of teh CNN during training.
+    ----------
+    Parameters:
+    history: Historical data collected during training returned by train_validate_CNN() 
+    epoch: The number of epochs used to run our model
+    ----------
+    """
     acc = history.history['accuracy']
     val_acc = history.history['val_accuracy']
-
     loss = history.history['loss']
     val_loss = history.history['val_loss']
-
     epochs_range = range(epoch)
 
     plt.figure(figsize=(16, 4))
@@ -533,6 +581,12 @@ def CNN_learning_curve(history,epoch):
     plt.show()
     
 def CNN_predict():
+    """
+    This function takes the probability of the CNN's decision for each image and returns the label with the highest one.
+    ----------
+    Parameters: No parameters expected
+    ----------
+    """
     y_pred = model.predict(X_test)
     class_names=[0, 1]
     score = tf.nn.softmax(y_pred[0])
@@ -543,17 +597,16 @@ def CNN_predict():
         temp.append(i)
     return temp
 
-    
-def create_combined_features(img):
-    fd, hog_image = hog(img, orientations=9, pixels_per_cell=(8, 8), 
-                    cells_per_block=(2, 2), visualize=True, multichannel=True, block_norm = "L2-Hys")
-    hog_image_rescaled = exposure.rescale_intensity(hog_image, in_range=(0, 10))
-    LBP = create_lbp_features(img)/255
-    feat = np.hstack([LBP, hog_image_rescaled]).flatten()
-    return feat
-
-
 def apply_pca(X_train,X_test,plot:bool=False):
+    """
+    This function Standardises the data and fit/transforms train and test data into sets with lower dimensional vectors
+    ----------
+    Parameters: 
+    X_train: The training set of the given data
+    X_test: The test set of the given data
+    plot: Boolean that specifies whether to display the cumulative variance curve or not
+    ----------
+    """
     ss = StandardScaler()
     ss = ss.fit(X_train)
     X_train = ss.transform(X_train)
@@ -575,6 +628,15 @@ def apply_pca(X_train,X_test,plot:bool=False):
 
 
 def grid_search_tuning(model,X_train,y_train):
+    """
+    This function uses grid search to hyper tune the main parameters of a given model
+    ----------
+    Parameters: 
+    model: The model to tune. A different grid is used depending on this variable
+    X_train: The train set of the given data
+    y_train: The labels corresponding to X_train
+    ----------
+    """
     print("Hyperparameter Tuning using 5-folds validation")
     if model == "SVM":
         grid= {'kernel':('linear', 'sigmoid'), 'C': [0.1, 1, 10, 100], 
@@ -595,6 +657,17 @@ def grid_search_tuning(model,X_train,y_train):
         
 
 def train_test(model,X_train,y_train,X_test,y_test):
+    """
+    This function uses a given model to train and return classification decisions
+    ----------
+    Parameters: 
+    model: The model to tune. A different grid is used depending on this variable
+    X_train: The train set of the given data
+    y_train: The labels corresponding to X_train
+    X_test: The test set of the given data
+    y_test: The labels corresponding to X_test
+    ----------
+    """
     model = model
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
@@ -606,60 +679,36 @@ def train_test(model,X_train,y_train,X_test,y_test):
     print(test_acc)
     print("")
     print("************************************************************")
-    print("                 LR classification report")
+    print("                 Classification report")
     print("************************************************************")
     print(classification_report(y_test, y_pred))
     return y_pred,train_acc,test_acc, model
 
-def image_generator(X_train,y_train):
-
-    augmentation =ImageDataGenerator(
-    rotation_range=10,
-    width_shift_range=0.25,
-    height_shift_range=0.25,
-    shear_range=0.2,
-    zoom_range=0.2,
-    horizontal_flip=True
-    )
-    augmented_arr = []
-    augmented_labels = []
-
-    for arr,label in zip(np.array(X_train.iloc[0:4000,:]), np.array(y_train.iloc[0:4000])):
-        aug_iter = augmentation.flow(np.expand_dims(arr[0],0))
-        aug_images = [next(aug_iter)[0].astype(np.uint8) for i in range(2)]
-        for i in aug_images:
-            augmented_arr.append([i])
-            augmented_labels.append(label)   
-
-    augmented_arr = DataFrame(augmented_arr)
-    augmented_labels = DataFrame(augmented_labels)
-    X_train = pd.concat([X_train,augmented_arr])
-    y_train = pd.concat([y_train,augmented_labels])
-    return X_train,y_train
 
 
-
-
-
-# df = load_A1_data("celeba")
+df = load_A1_data("celeba")
 # plot_data_sample(df)
-# X_train, X_test, y_train, y_test = data_partition(df,"combined")
-# X_train, X_test,pca = apply_pca(X_train,X_test,plot=False)
+X_train, X_test, y_train, y_test = data_partition(df,"combined")
+X_train, X_test,pca = apply_pca(X_train,X_test,plot=False)
 # plot_eigenfaces(pca)
 # plot_pca_projections(pca,X_train)
 
 
 # # grid_search_tuning("LR",X_train,y_train)
-# LR =  LogisticRegression(C=0.001, max_iter=1500, solver='saga')
+LR =  LogisticRegression(C=0.001, max_iter=1500, solver='saga')
+print("Results for Logistic Regression :")
+print("")
 # plot_learning_curve (LR,"Learning curve for LR",X_train,y_train)
-# y_pred_LR,train_acc_LR,test_acc_LR, LR = train_test(LR,X_train,y_train,X_test,y_test)
-# auc_roc_LR= roc_auc_score(y_test,y_pred_LR)
+y_pred_LR,train_acc_LR,test_acc_LR, LR = train_test(LR,X_train,y_train,X_test,y_test)
+auc_roc_LR= roc_auc_score(y_test,y_pred_LR)
 # plot_ROC(LR,auc_roc_LR,X_test,y_test)
 # plot_confusion_matrix(y_test,y_pred_LR)
 
 
 # # grid_search_tuning("SVM",X_train,y_train)
 # SVM =  SVC(C=1, gamma=1e-05, kernel='sigmoid',probability=True)
+# print("Results for Support Vector Machines :")
+# print("")
 # plot_learning_curve (SVM,"Learning curve for SVM",X_train,y_train)
 # y_pred_SVM,train_acc_SVM,test_acc_SVM, SVM = train_test(SVM,X_train,y_train,X_test,y_test)
 # auc_roc_SVM= roc_auc_score(y_test,y_pred_SVM)
@@ -669,6 +718,8 @@ def image_generator(X_train,y_train):
 
 # # grid_search_tuning("KNN",X_train,y_train)
 # KNN = KNeighborsClassifier(n_neighbors = 38)
+# print("Results for KNN :")
+# print("")
 # plot_learning_curve (KNN,"Learning curve for KNN",X_train,y_train)
 # y_pred_KNN,train_acc_KNN,test_acc_KNN, KNN = train_test(KNN,X_train,y_train,X_test,y_test)
 # auc_roc_KNN= roc_auc_score(y_test,y_pred_KNN)
@@ -677,10 +728,13 @@ def image_generator(X_train,y_train):
 
 
 # X_train, X_test,X_val,y_train, y_test, y_val = data_partition_validate(df,"unchanged", augmentation=False)
+# print("Results for CNN :")
+# print("")
 # history, model = train_validate_CNN(epoch=15)
-# CNN_learning_curve(history,9)
+# CNN_learning_curve(history,len(history.history['accuracy']))
 # y_pred_CNN = CNN_predict()
 # print(classification_report(y_test, y_pred_CNN))
 # auc_roc_CNN= roc_auc_score(y_test,y_pred_CNN)
+# print("AUC CNN:", auc_roc_CNN)
 # plot_ROC(model,auc_roc_CNN,X_test,y_test)
 # plot_confusion_matrix(y_test,y_pred_CNN)
