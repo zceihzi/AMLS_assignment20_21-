@@ -1,17 +1,12 @@
-# python A1/A1.py
+# python A2/A2.py
 from PIL import Image
 import os
 
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
-
 import joblib
 
-from keras.preprocessing.image import ImageDataGenerator
-from keras.applications.inception_v3 import preprocess_input
-import imageio
-import cv2
 
 # Import sklearn libraries for using a set of models and pre defined functions to prepare, train and test them
 from sklearn.model_selection import train_test_split
@@ -25,7 +20,6 @@ from sklearn.model_selection import GridSearchCV,learning_curve,ShuffleSplit
 
 # Used to visualise and process images for better performance 
 import matplotlib.pyplot as plt
-from skimage.color import rgb2gray
 from skimage.feature import hog
 from skimage import exposure
 import seaborn as sns
@@ -41,8 +35,10 @@ from sklearn.metrics import (confusion_matrix,roc_auc_score, precision_recall_cu
                              roc_curve, recall_score,accuracy_score, classification_report, f1_score,
                              precision_recall_fscore_support, log_loss)
 
-import keras
 import tensorflow as tf
+import keras
+from keras.preprocessing.image import ImageDataGenerator
+from keras.applications.inception_v3 import preprocess_input
 from keras.utils import to_categorical
 from keras.models import Sequential
 from keras.layers import Conv2D, MaxPooling2D
@@ -68,7 +64,6 @@ def plot_hog_image(image):
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True) 
     ax1.imshow(image) 
     ax1.set_title('Input image') 
-
     # Rescale histogram for better display 
     hog_image_rescaled = exposure.rescale_intensity(hog_image, in_range=(0, 10)) 
     ax2.imshow(hog_image_rescaled) 
@@ -77,23 +72,19 @@ def plot_hog_image(image):
 
     
 def plot_eigenfaces(pca):
-    fig, axes = plt.subplots(2,10,figsize=(15,3),
+    fig, axes = plt.subplots(2,5,figsize=(15,4),
     subplot_kw={'xticks':[], 'yticks':[]},
     gridspec_kw=dict(hspace=0.01, wspace=0.01))
     for i, ax in enumerate(axes.flat):
-#         ax.imshow(pca.components_[i].reshape(654,178),cmap="gray")
-    #     ax.imshow(projected[i].reshape(436,178),cmap="binary")
-        ax.imshow(pca.components_[i].reshape(218,178),cmap="gray")
+        ax.imshow(pca.components_[i].reshape(218,356),cmap="binary")
     plt.show()
 
 
 def plot_pca_projections(pca,X_train):
     projected = pca.inverse_transform(X_train)
-    fig, axes = plt.subplots(2,10,figsize=(15, 3), subplot_kw={'xticks':[], 'yticks':[]},gridspec_kw=dict(hspace=0.01, wspace=0.01))
+    fig, axes = plt.subplots(2,5,figsize=(15, 4), subplot_kw={'xticks':[], 'yticks':[]},gridspec_kw=dict(hspace=0.01, wspace=0.05))
     for i, ax in enumerate(axes.flat):
-        ax.imshow(projected[i].reshape(218,178),cmap="binary")
-    #     ax.imshow(projected[i].reshape(436,178),cmap="binary")
-    #     ax.imshow(projected[i].reshape(654,178),cmap="gray")
+        ax.imshow(projected[i].reshape(218,356),cmap="binary")
     plt.show()
 
 
@@ -122,19 +113,26 @@ def plot_ROC(model,auc_roc,X_test,y_test):
     plt.show()
 
 
-def plot_learning_curve(estimator, title, X, y, axes=None, ylim=None, cv=3,
-                        n_jobs=None, train_sizes=np.linspace(.1, 1.0, 5)):
-    if axes is None:
-        _, axes = plt.subplots(1, 2, figsize=(20, 5))
-
-    axes[0].set_title(title)
-    if ylim is not None:
-        axes[0].set_ylim(*ylim)
-    axes[0].set_xlabel("Training examples")
-    axes[0].set_ylabel("Score")
+def plot_learning_curve(estimator, title, X, y):
+    """
+    Generates a plot the training and validation curves during training
+    ----------
+    Parameters:
+    estimator: The model defined to solve the classification problem
+    title: A string that represents the overall graph's title
+    X: Typically the set of images we want to use to train our model
+    y: The label of each image in X
+    ----------
+    """
+    train_sizes=np.linspace(.1, 1.0, 5)
+    cv=3
+    fig, ax = plt.subplots(1,1)
+    ax.set_title(title)
+    ax.set_xlabel("Training examples")
+    ax.set_ylabel("Score")
 
     train_sizes, train_scores, test_scores, fit_times, _ = \
-        learning_curve(estimator, X, y, cv=cv, n_jobs=n_jobs,
+        learning_curve(estimator, X, y, cv=cv,
                        train_sizes=train_sizes,
                        return_times=True)
     train_scores_mean = np.mean(train_scores, axis=1)
@@ -145,32 +143,23 @@ def plot_learning_curve(estimator, title, X, y, axes=None, ylim=None, cv=3,
     fit_times_std = np.std(fit_times, axis=1)
 
     # Plot learning curve
-    axes[0].grid()
-    axes[0].fill_between(train_sizes, train_scores_mean - train_scores_std,
+    ax.grid()
+    ax.fill_between(train_sizes, train_scores_mean - train_scores_std,
                          train_scores_mean + train_scores_std, alpha=0.1,
                          color="r")
-    axes[0].fill_between(train_sizes, test_scores_mean - test_scores_std,
+    ax.fill_between(train_sizes, test_scores_mean - test_scores_std,
                          test_scores_mean + test_scores_std, alpha=0.1,
                          color="g")
-    axes[0].plot(train_sizes, train_scores_mean, 'o-', color="r",
+    ax.plot(train_sizes, train_scores_mean, 'o-', color="r",
                  label="Training score")
-    axes[0].plot(train_sizes, test_scores_mean, 'o-', color="g",
+    ax.plot(train_sizes, test_scores_mean, 'o-', color="g",
                  label="Cross-validation score")
-    axes[0].legend(loc="best")
-
-    # Plot fit_time vs score
-    axes[1].grid()
-    axes[1].plot(fit_times_mean, test_scores_mean, 'o-')
-    axes[1].fill_between(fit_times_mean, test_scores_mean - test_scores_std,
-                         test_scores_mean + test_scores_std, alpha=0.1)
-    axes[1].set_xlabel("fit_times")
-    axes[1].set_ylabel("Score")
-    axes[1].set_title("Performance of the model")
+    ax.legend(loc="best")
     return plt
 
 
 def plot_lbp_image(image):
-    img = cv2.imread("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/celeba/img/"+image, 1) 
+    img = Image.open("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/celeba/img/"+image)
     img_lbp = create_lbp_features(img)
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True) 
     ax1.imshow(img, cmap=plt.cm.gray) 
@@ -214,15 +203,16 @@ def data_partition(df, extraction:str = ""):
 
     X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=.20,random_state=12039393)
     
-    X_train = create_feature_matrix(X_train[0],extraction)
-    X_test = create_feature_matrix(X_test[0],extraction)
+#     X_train = create_feature_matrix(X_train[0],extraction)
+#     X_test = create_feature_matrix(X_test[0],extraction)
 
-    # X_train = joblib.load("X_train_combined2.pkl")
-    # X_test = joblib.load("X_test_combined2.pkl")
+    X_train = joblib.load("X_train_TaskA.pkl")
+    X_test = joblib.load("X_test_TaskA.pkl")
 
-    # look at the distrubution of labels in the train set
-#     print(pd.Series(y_train).value_counts())
-#     print(pd.Series(y_test).value_counts())
+    print("Overall class distribution in this dataset")
+    print(pd.Series(y_train).value_counts())
+    print(pd.Series(y_test).value_counts())
+    print("")
     print("X_train has shape:", X_train.shape)
     print("y_train has shape:", y_train.shape)
     print("X_test has shape:", X_test.shape)
@@ -230,7 +220,7 @@ def data_partition(df, extraction:str = ""):
     return X_train,X_test,y_train,y_test
 
 
-def create_feature_matrix(label_dataframe,extraction):
+def create_feature_matrix(label_dataframe,extraction:str="combined"):
     features_list = []
     pbar = ProgressBar()
     for img_id in pbar(label_dataframe):
@@ -239,7 +229,7 @@ def create_feature_matrix(label_dataframe,extraction):
             image_features = create_hog_features(img_id)
             features_list.append(image_features)
         if extraction == "lbp":
-            image_features = create_lbp_features(img_id).flatten()
+            image_features = create_lbp_features(img_id)
             features_list.append(image_features)
         if extraction == "combined":
             image_features = create_combined_features(img_id)
@@ -308,7 +298,7 @@ def lbp_calculated_pixel(img, x, y):
 def create_lbp_features(img):
     height, width, _ = img.shape 
 #   Convert to graysclae beacause the has only one channel . 
-    img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) 
+    img_gray = rgb2gray(img)
 #   Get array of  same height and width as the RGB image 
     img_lbp = np.zeros((height, width), np.uint8) 
     for i in range(0, height): 
@@ -317,7 +307,7 @@ def create_lbp_features(img):
     return img_lbp
 
 
-def data_partition_validate(df,extraction):
+def data_partition_validate(df,extraction,augmentation=False):
     X = pd.DataFrame(df["img_name"].values)
     y = pd.Series(df["smiling"].values)
     X_train, X_test, y_train, y_test = train_test_split(X,
@@ -325,6 +315,9 @@ def data_partition_validate(df,extraction):
                                                         test_size=.20,
                                                         random_state=1234123)
     X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=1)
+        
+    if augmentation is True:
+        X_train,y_train = image_generator(X_train,y_train)
     
     X_train = create_feature_matrix(X_train[0],extraction)
     X_test = create_feature_matrix(X_test[0],extraction)
@@ -369,8 +362,8 @@ def train_validate_CNN(summary:bool=False, epoch:int=15):
     model.add(Flatten())  # this converts our 3D feature maps to 1D feature vectors
     model.add(Dense(256))
     keras.layers.Dropout(0.5),
-
     model.add(Activation('relu'))
+    
     model.add(Dense(2))
     keras.layers.Dropout(0.5),
     model.add(Activation('softmax'))
@@ -389,28 +382,23 @@ def train_validate_CNN(summary:bool=False, epoch:int=15):
     return history, model,epoch
 
 
-def CNN_learning_curve(history):
+def CNN_learning_curve(history,epoch):
     acc = history.history['accuracy']
     val_acc = history.history['val_accuracy']
 
     loss = history.history['loss']
     val_loss = history.history['val_loss']
 
-    epochs_range = range(15)
+    epochs_range = range(epoch)
 
-    plt.figure(figsize=(8, 8))
+    plt.figure(figsize=(16, 4))
     plt.subplot(1, 2, 1)
     plt.plot(epochs_range, acc, label='Training Accuracy')
     plt.plot(epochs_range, val_acc, label='Validation Accuracy')
     plt.legend(loc='lower right')
     plt.title('Training and Validation Accuracy')
-
-    plt.subplot(1, 2, 2)
-    plt.plot(epochs_range, loss, label='Training Loss')
-    plt.plot(epochs_range, val_loss, label='Validation Loss')
-    plt.legend(loc='upper right')
-    plt.title('Training and Validation Loss')
     plt.show()
+    
     
 def CNN_predict():
     y_pred = model.predict(X_test)
@@ -491,52 +479,76 @@ def train_test(model,X_train,y_train,X_test,y_test):
     print(classification_report(y_test, y_pred))
     return y_pred,train_acc,test_acc, model
 
+def image_generator(X_train,y_train):
 
-# Load csv, extract coma separated values for rows and columns to create a clean dataframe
-df = load_A2_data()
-# plot_data_sample(df)
-X_train, X_test, y_train, y_test = data_partition(df,"lbp")
+    augmentation =ImageDataGenerator(
+    rotation_range=10,
+    width_shift_range=0.25,
+    height_shift_range=0.25,
+    shear_range=0.2,
+    zoom_range=0.2,
+    horizontal_flip=True
+    )
+    augmented_arr = []
+    augmented_labels = []
 
-X_train, X_test,pca = apply_pca(X_train,X_test,plot=False)
-# plot_eigenfaces(pca)
-# plot_pca_projections(pca,X_train)
+    for arr,label in zip(np.array(X_train.iloc[0:4000,:]), np.array(y_train.iloc[0:4000])):
+        aug_iter = augmentation.flow(np.expand_dims(arr[0],0))
+        aug_images = [next(aug_iter)[0].astype(np.uint8) for i in range(2)]
+        for i in aug_images:
+            augmented_arr.append([i])
+            augmented_labels.append(label)   
+
+    augmented_arr = DataFrame(augmented_arr)
+    augmented_labels = DataFrame(augmented_labels)
+    X_train = pd.concat([X_train,augmented_arr])
+    y_train = pd.concat([y_train,augmented_labels])
+    return X_train,y_train
 
 
-# # Run this code to return results for Logistic regression
-LR =  LogisticRegression(C=0.001, max_iter=1500, solver='newton-cg')
+
+
+df = load_A2_data("celeba")
+plot_data_sample(df)
+X_train, X_test, y_train, y_test = data_partition(df,"combined")
+X_train, X_test, pca = apply_pca(X_train,X_test,plot=False)
+plot_eigenfaces(pca)
+plot_pca_projections(pca,X_train)
+
+
+# # grid_search_tuning("LR",X_train,y_train)
+# LR =  LogisticRegression(C=0.001, max_iter=1500, solver='newton-cg')
 # plot_learning_curve (LR,"Learning curve for LR",X_train,y_train)
-# grid_search_tuning("LR",X_train,y_train)
-y_pred_LR,train_acc_LR,test_acc_LR, LR = train_test(LR,X_train,y_train,X_test,y_test)
-auc_roc_LR= roc_auc_score(y_test,y_pred_LR)
+# y_pred_LR,train_acc_LR,test_acc_LR, LR = train_test(LR,X_train,y_train,X_test,y_test)
+# auc_roc_LR= roc_auc_score(y_test,y_pred_LR)
+# print(auc_roc_LR)
 # plot_ROC(LR,auc_roc_LR,X_test,y_test)
 # plot_confusion_matrix(y_test,y_pred_LR)
 
 
-# # Run this code to return results for Support Vector Machines
+# # grid_search_tuning("SVM",X_train,y_train)
 # SVM = SVC(C=1, gamma=1e-05, kernel='sigmoid',probability=True)
 # plot_learning_curve (SVM,"Learning curve for SVM",X_train,y_train)
-# # grid_search_tuning("SVM",X_train,y_train)
 # y_pred_SVM,train_acc_SVM,test_acc_SVM, SVM = train_test(SVM,X_train,y_train,X_test,y_test)
 # auc_roc_SVM= roc_auc_score(y_test,y_pred_SVM)
 # plot_ROC(SVM,auc_roc_SVM,X_test,y_test)
 # plot_confusion_matrix(y_test,y_pred_SVM)
 
 
-# # Run this code to return results for KNN
+# # grid_search_tuning("KNN",X_train,y_train)
 # KNN = KNeighborsClassifier(n_neighbors = 38)
 # plot_learning_curve (KNN,"Learning curve for KNN",X_train,y_train)
-# # grid_search_tuning("KNN",X_train,y_train)
 # y_pred_KNN,train_acc_KNN,test_acc_KNN, KNN = train_test(KNN,X_train,y_train,X_test,y_test)
 # auc_roc_KNN= roc_auc_score(y_test,y_pred_KNN)
-# plot_ROC(KNN,auc_roc_KN,X_test,y_test)
+# plot_ROC(KNN,auc_roc_KNN,X_test,y_test)
 # plot_confusion_matrix(y_test,y_pred_KNN)
 
 
-# # Run this code to return results for CNN
 # X_train, X_test,X_val,y_train, y_test, y_val = data_partition_validate(df,"unchanged")
 # history, model,epoch = train_validate_CNN(epoch=15)
-# CNN_learning_curve(history)
+# CNN_learning_curve(history,10)
 # y_pred_CNN = CNN_predict()
-# plot_confusion_matrix(y_test,y_pred_CNN)
 # auc_roc_CNN= roc_auc_score(y_test,y_pred_CNN)
 # plot_ROC(model,auc_roc_CNN,X_test,y_test)
+# plot_confusion_matrix(y_test,y_pred_CNN)
+# print(classification_report(y_test, y_pred_CNN))
