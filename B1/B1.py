@@ -12,7 +12,6 @@ from sklearn.model_selection import train_test_split
 from sklearn import svm
 from sklearn import linear_model
 from sklearn.svm import SVC
-from sklearn.svm import LinearSVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV,learning_curve,ShuffleSplit
@@ -92,7 +91,6 @@ def plot_eigenfaces(pca):
         ax.imshow(pca.components_[i].reshape(290,260),cmap="gray")
     plt.show()
 
-
 def plot_pca_projections(pca,X_train):
     """
     Generates a visualisation of a sample of 10 reconstructed images from the components generated from PCA 
@@ -106,7 +104,6 @@ def plot_pca_projections(pca,X_train):
     for i, ax in enumerate(axes.flat):
         ax.imshow(projected[i].reshape(290,260),cmap="gray")
     plt.show()
-    
     
 def plot_confusion_matrix(y_test,y_pred):
     """
@@ -169,7 +166,6 @@ def plot_learning_curve(estimator, title, X, y):
     ax.legend(loc="best")
     plt.show()
 
-
 def plot_data_sample(df):
     """
     Generates a visualisation of the dataset by plotting a sample of 10 images with their label. 
@@ -187,8 +183,6 @@ def plot_data_sample(df):
         plt.imshow(df["file_name"].iloc[i])
         plt.xlabel(df["face_shape"].iloc[i])
     plt.show()
-    
-    
     
 def crop_images(image):
     """
@@ -433,10 +427,8 @@ def CNN_learning_curve(history,epoch):
     """
     acc = history.history['accuracy']
     val_acc = history.history['val_accuracy']
-
     loss = history.history['loss']
     val_loss = history.history['val_loss']
-
     epochs_range = range(epoch)
 
     plt.figure(figsize=(16, 4))
@@ -488,7 +480,7 @@ def train_test(model,X_train,y_train,X_test,y_test):
     print(test_acc)
     print("")
     print("************************************************************")
-    print("                 LR classification report")
+    print("                  Classification report")
     print("************************************************************")
     print(classification_report(y_test, y_pred))
     return y_pred,train_acc,test_acc, model
@@ -529,7 +521,7 @@ plot_confusion_matrix(y_test,y_pred_LR)
 
 
 # X_train, X_test,X_val,y_train, y_test, y_val = data_partition_validate(df,"unchanged")
-# history, model,epoch = train_validate_CNN(epoch=5)
+# history, model,epoch = train_validate_CNN(epoch=3)
 # y_pred_CNN = CNN_predict()
 # CNN_learning_curve(history,len(history.history['accuracy']))
 # print("Results for CNN :")

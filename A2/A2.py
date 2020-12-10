@@ -12,7 +12,6 @@ from sklearn.model_selection import train_test_split
 from sklearn import svm
 from sklearn import linear_model
 from sklearn.svm import SVC
-from sklearn.svm import LinearSVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import GridSearchCV,learning_curve,ShuffleSplit
@@ -663,7 +662,7 @@ def train_test(model,X_train,y_train,X_test,y_test):
     print(test_acc)
     print("")
     print("************************************************************")
-    print("                 LR classification report")
+    print("                  Classification report")
     print("************************************************************")
     print(classification_report(y_test, y_pred))
     return y_pred,train_acc,test_acc, model
