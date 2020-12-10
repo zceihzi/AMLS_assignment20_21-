@@ -54,14 +54,14 @@ def plot_data_sample(df):
     df: The preprocessed dataframe where images were opened and converted into vectors
     ----------
     """ 
-    plt.figure(figsize=(10,10))
-    for i in range(25):
+    plt.figure(figsize=(7,10))
+    for i in range(20):
         plt.subplot(5,5,i+1)
         plt.xticks([])
         plt.yticks([])
         plt.grid(False)
-        plt.imshow(df["img_name"].iloc[i])
-        plt.xlabel(df["smiling"].iloc[i])
+        plt.imshow(df["file_name"].iloc[i])
+        plt.xlabel(df["face_shape"].iloc[i])
     plt.show()
 
 def plot_hog_image(image):
@@ -124,12 +124,12 @@ def plot_confusion_matrix(y_test,y_pred):
     y_pred: An array of numbers generated from the classifier's predictions
     ----------
     """
-    cm_LR=confusion_matrix(y_test,y_pred)
-    df_cm_LR = pd.DataFrame(cm_LR, index = [i for i in "cm"],columns = [i for i in "cm"])
+    cm=confusion_matrix(y_test,y_pred)
+    df_cm = pd.DataFrame(cm, index = [i for i in "cm"],columns = [i for i in "cm"])
     plt.figure()
     x_axis_labels = ['Actual Female','Actual Male'] # labels for x-axis
     y_axis_labels = ['Predicted Female','Predicted Male'] # labels for y-axis
-    sns.heatmap(df_cm_LR, annot=True,xticklabels=x_axis_labels, yticklabels=y_axis_labels)
+    sns.heatmap(df_cm, annot=True,xticklabels=x_axis_labels, yticklabels=y_axis_labels)
     plt.show()
 
 def plot_ROC(model,auc_roc,X_test,y_test):
@@ -158,7 +158,7 @@ def plot_ROC(model,auc_roc,X_test,y_test):
 
 def plot_learning_curve(estimator, title, X, y):
     """
-    Generates a plot of the training and validation curves during training
+    Generates a plot of the training and validation curves during learning
     ----------
     Parameters:
     estimator: The model defined to solve the classification problem
@@ -253,7 +253,7 @@ def image_generator(X_train,y_train):
 def load_A2_data(folder):
     """
     This function loads the raw csv provided and extracts the label of interest given what task we are solving.
-    It returns a dataframe with a vectorised image of shape (218,178,3) and their corresponding label
+    It returns a dataframe with vectorised images of shape (218,178,3) and their corresponding label
     ----------
     Parameters:
     folder: A string that refers to the name of teh folder we want to use. Eg: "celeba"/"celeba_test"/"cartoon_set"/"cartoon_set_test"
@@ -360,7 +360,7 @@ def create_combined_features(img):
 
 def create_hog_features(img):
     """
-    Extracts hog features from an images and returns a processed 1D vector 
+    Extracts hog features from an image and returns a processed 1D vector 
     ----------
     Parameters:
     img: A vectorised image of typically 3 dimensions in our case
