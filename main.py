@@ -1,5 +1,7 @@
 from A1 import A1 
 from A2 import A2
+from B1 import B1
+from B2 import B2
 
 # # ======================================================================================================================
 # # Data preprocessing
@@ -39,5 +41,5 @@ from A2 import A2
 # ## Print out your results with following format:
 print('TA1:{},{};TA2:{},{};TB1:{},{};TB2:{},{};'.format(A1.train_acc_LR, A1.test_acc_LR,
                                                         A2.train_acc_LR, A2.test_acc_LR,
-                                                        "acc_B1_train", "acc_B1_test",
-                                                        "acc_B2_train", "acc_B2_test"))
+                                                        B1.train_acc_LR, B1.test_acc_LR,
+                                                        B2.train_acc_LR, B2.test_acc_LR))

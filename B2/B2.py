@@ -73,6 +73,7 @@ def plot_mean_image():
     # Generate, save and preview final image
     out=Image.fromarray(arr,mode="RGB")
     plt.imshow(out)
+    plt.show()
     
 def plot_eigenfaces(pca):
     """
@@ -194,8 +195,9 @@ def plot_data_sample(df):
         plt.yticks([])
         plt.grid(False)
         plt.imshow(df["file_name"].iloc[i])
-        plt.xlabel(df["face_shape"].iloc[i])
+        plt.xlabel(df["eye_color"].iloc[i])
     plt.show()
+
 
 def crop_images(image):
     img = Image.open("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/cartoon_set/img/"+str(image)).convert('RGB')
@@ -209,7 +211,7 @@ def crop_images(image):
     cropped = img.crop((left, top, right, bottom))
     return cropped
 
-def load_B2_data():
+def load_B2_data(folder):
     """
     This function loads the raw csv provided and extracts the label of interest given what task we are solving.
     It returns a dataframe with a set of vectorised images and their corresponding label
@@ -218,7 +220,7 @@ def load_B2_data():
     folder: A string that refers to the name of teh folder we want to use. Eg: "celeba"/"celeba_test"/"cartoon_set"/"cartoon_set_test"
     ----------
     """
-    df= pd.read_csv("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/" +folder+ "/labels22.csv")
+    df = pd.read_csv("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/" +folder+ "/labels.csv")
     rows = []
     columns = []
     for i in [df.iloc[:,0]]:
@@ -573,48 +575,50 @@ def train_test(model,X_train,y_train,X_test,y_test):
     return y_pred,train_acc,test_acc, model
 
 
-plot_mean_image()
+# plot_mean_image()
 df,original_dataset = load_B2_data("cartoon_set")
-plot_data_sample(df)
-add_glass_label(df,plot=True)
+# plot_data_sample(df)
+add_glass_label(df,plot=False)
 res = pd.Series(df["glasses"]).value_counts().to_dict()
-plot_glass_filter_efficiency(min(res, key=lambda k: res[k]))
+# plot_glass_filter_efficiency(min(res, key=lambda k: res[k]))
+df = df[df.glasses != min(res, key=lambda k: res[k])]
+
 X_train, X_test, y_train, y_test = data_partition(df,"flat")
 X_train, X_test,pca = apply_pca(X_train,X_test,plot=False)
-plot_eigenfaces(pca)
-plot_pca_projections(pca,X_train)
+# plot_eigenfaces(pca)
+# plot_pca_projections(pca,X_train)
 
 
 LR =  LogisticRegression(max_iter=10000,multi_class='multinomial')
 print("")
-print("Results for Logistic Regression :")
+print("Results for Logistic Regression in task B2 :")
 print("")
-plot_learning_curve (LR,"Learning curve for LR",X_train,y_train)
 y_pred_LR,train_acc_LR,test_acc_LR, LR = train_test(LR,X_train,y_train,X_test,y_test)
-plot_confusion_matrix(y_test,y_pred_LR)
+# plot_learning_curve (LR,"Learning curve for LR",X_train,y_train)
+# plot_confusion_matrix(y_test,y_pred_LR)
 
 
-SVM = SVC()
-plot_learning_curve (SVM,"Learning curve for SVM",X_train,y_train)
-print("Results for Support Vector Machines :")
-print("")
-y_pred_SVM,train_acc_SVM,test_acc_SVM, SVM = train_test(SVM,X_train,y_train,X_test,y_test)
-plot_confusion_matrix(y_test,y_pred_SVM)
+# SVM = SVC()
+# plot_learning_curve (SVM,"Learning curve for SVM",X_train,y_train)
+# print("Results for Support Vector Machines in task B2 :")
+# print("")
+# y_pred_SVM,train_acc_SVM,test_acc_SVM, SVM = train_test(SVM,X_train,y_train,X_test,y_test)
+# plot_confusion_matrix(y_test,y_pred_SVM)
 
 
-KNN = KNeighborsClassifier(n_neighbors = 30)
-plot_learning_curve (KNN,"Learning curve for KNN",X_train,y_train)
-print("Results for KNN :")
-print("")
-y_pred_KNN,train_acc_KNN,test_acc_KNN, KNN = train_test(KNN,X_train,y_train,X_test,y_test)
-plot_confusion_matrix(y_test,y_pred_KNN)
+# KNN = KNeighborsClassifier(n_neighbors = 20)
+# # plot_learning_curve (KNN,"Learning curve for KNN",X_train,y_train)
+# print("Results for KNN in task B2 :")
+# print("")
+# y_pred_KNN,train_acc_KNN,test_acc_KNN, KNN = train_test(KNN,X_train,y_train,X_test,y_test)
+# plot_confusion_matrix(y_test,y_pred_KNN)
 
 
-X_train, X_test,X_val,y_train, y_test, y_val = data_partition_validate(df,"unchanged")
-history, model, epoch = train_validate_CNN(epoch=5)
-CNN_learning_curve(history,5)
-y_pred_CNN = CNN_predict()
-print("Results for CNN :")
-print("")
-print(classification_report(y_test, y_pred_CNN))
-plot_confusion_matrix(y_test,y_pred_CNN)
+# X_train, X_test,X_val,y_train, y_test, y_val = data_partition_validate(df,"unchanged")
+# history, model, epoch = train_validate_CNN(epoch=5)
+# CNN_learning_curve(history,len(history.history['accuracy']))
+# y_pred_CNN = CNN_predict()
+# print("Results for CNN in task B2 :")
+# print("")
+# print(classification_report(y_test, y_pred_CNN))
+# plot_confusion_matrix(y_test,y_pred_CNN)
