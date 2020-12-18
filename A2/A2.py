@@ -706,7 +706,7 @@ def train_test(model,X_train,y_train,X_test,y_test,new_X_test,new_y_test):
     print(classification_report(new_y_test, y_pred2))
     return y_pred,y_pred2,train_acc,test_acc,test_acc2, model
 
-print("TASK A2 strating:")
+print("TASK A2 starting:")
 df = load_A2_data("celeba")
 X_train, X_test, new_X_test, y_train, y_test, new_y_test = data_partition(df,"combined")
 X_train, X_test, new_X_test, pca = apply_pca(X_train,X_test,new_X_test,plot=False)

@@ -529,7 +529,7 @@ def train_test(model,X_train,y_train,X_test,y_test,new_X_test,new_y_test):
     print(classification_report(new_y_test, y_pred2))
     return y_pred,y_pred2,train_acc,test_acc,test_acc2, model
 
-print("TASK B1 strating:")
+print("TASK B1 starting:")
 classes = [0,1,2,3,4]
 df = load_B1_data("cartoon_set")
 
