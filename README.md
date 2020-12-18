@@ -21,4 +21,6 @@ NOTE :
 
 - The functions were also commented for a better understanding 
 
+- The main module that would need to be installed if not already would be: Keras, Tensorflow, Scikitlearn, joblib, numpy, pandas, PILLOW, skimage and matplotlib,seaborn and progressbar
+
 
