@@ -59,8 +59,8 @@ def plot_data_sample(df):
         plt.xticks([])
         plt.yticks([])
         plt.grid(False)
-        plt.imshow(df["file_name"].iloc[i])
-        plt.xlabel(df["face_shape"].iloc[i])
+        plt.imshow(df["img_name"].iloc[i])
+        plt.xlabel(df["gender"].iloc[i])
     plt.show()
 
 def plot_hog_image(image):
@@ -71,7 +71,7 @@ def plot_hog_image(image):
     image: A string refering to the file name (image) to plot. Eg: "1.jpg"
     ----------
     """
-    image = np.array(Image.open("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/celeba/img/"+image))
+    image = np.array(Image.open("Datasets/celeba/img/"+image))
     fd, hog_image = hog(image, orientations=9, pixels_per_cell=(8, 8), 
                     cells_per_block=(2, 2), visualize=True, multichannel=True)
 
@@ -130,7 +130,6 @@ def plot_confusion_matrix(y_test,y_pred):
     y_axis_labels = ['Predicted Female','Predicted Male'] # labels for y-axis
     sns.heatmap(df_cm, annot=True,xticklabels=x_axis_labels, yticklabels=y_axis_labels)
     plt.show()
-
 
 def plot_ROC(model,auc_roc,X_test,y_test):
     """
@@ -208,7 +207,7 @@ def plot_lbp_image(image):
     image: A string refering to the file name (image) to plot. Eg: "1.jpg"    
     ----------
     """
-    img = np.array(Image.open("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/celeba/img/"+image))
+    img = np.array(Image.open("Datasets/celeba/img/"+image))
     img_lbp = create_lbp_features(img)
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), sharex=True, sharey=True) 
     ax1.imshow(img, cmap=plt.cm.gray) 
@@ -259,7 +258,7 @@ def load_A1_data(folder):
     folder: A string that refers to the name of teh folder we want to use. Eg: "celeba"/"celeba_test"/"cartoon_set"/"cartoon_set_test"
     ----------
     """
-    df= pd.read_csv("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/" +folder+ "/labels.csv")
+    df= pd.read_csv("Datasets/" +folder+ "/labels.csv")
     rows = []
     columns = []
     for i in [df.iloc[:,0]]:
@@ -271,7 +270,7 @@ def load_A1_data(folder):
 #     original_dataset = DataFrame(rows,columns=columns)
     pbar = ProgressBar()
     for i in pbar(rows):
-        i[0] = np.asarray(Image.open("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/celeba/img/"+i[0]))    
+        i[0] = np.asarray(Image.open("Datasets/"+folder+ "/img/"+i[0]))    
 
     df = DataFrame(rows,columns=columns)
     df["gender"] = pd.to_numeric(df["gender"])
@@ -294,21 +293,35 @@ def data_partition(df, extraction:str = ""):
 
     X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=.20,random_state=12039393)
     
+    new_test_data = load_A1_data("celeba_test")
+    new_X_test = pd.DataFrame(new_test_data["img_name"].values)
+    new_y_test = pd.Series(new_test_data["gender"].values)
+    
+    print("Feature extraction for X_train in progress ...")
     X_train = create_feature_matrix(X_train[0],extraction)
+    print("Feature extraction for X_test in progress ...")
     X_test = create_feature_matrix(X_test[0],extraction)
+    print("Feature extraction for the additional new_X_test in progress ...")
+    new_X_test = create_feature_matrix(new_X_test[0],extraction)
 
-    # X_train = joblib.load("X_train_TaskA.pkl")
-    # X_test = joblib.load("X_test_TaskA.pkl")
+    # X_train = joblib.load("X_train_fusion.pkl")
+    # X_test = joblib.load("X_test_fusion.pkl")
+    # new_X_test = joblib.load("new_X_test_fusion.pkl")
 
-    print("Overall class distribution in this dataset")
+    print("Overall class distribution in the training set ")
     print(pd.Series(y_train).value_counts())
+    print("Overall class distribution in the test")
     print(pd.Series(y_test).value_counts())
+    print("Overall class distribution in the additional test")
+    print(pd.Series(new_y_test).value_counts())
     print("")
     print("X_train has shape:", X_train.shape)
     print("y_train has shape:", y_train.shape)
     print("X_test has shape:", X_test.shape)
     print("y_test has shape:", y_test.shape)
-    return X_train,X_test,y_train,y_test
+    print("new_X_test has shape:", X_test.shape)
+    print("new_y_test has shape:", y_test.shape)
+    return X_train,X_test,new_X_test,y_train,y_test,new_y_test
 
 
 def create_feature_matrix(label_dataframe,extraction):
@@ -473,24 +486,35 @@ def data_partition_validate(df,extraction,augmentation=False):
                                                         random_state=1234123)
     X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=1)
     
+    new_test_data = load_A1_data("celeba_test")
+    new_X_test = pd.DataFrame(new_test_data["img_name"].values)
+    new_y_test = pd.Series(new_test_data["gender"].values)
+    
     if augmentation is True:
         X_train,y_train = image_generator(X_train,y_train)
     
     X_train = create_feature_matrix(X_train[0],extraction)
     X_test = create_feature_matrix(X_test[0],extraction)
     X_val = create_feature_matrix(X_val[0],extraction)
+    new_X_test = create_feature_matrix(new_X_test[0],extraction)
 
-    # look at the distrubution of labels in the train set
+    print("Overall class distribution in the training set ")
+    print(pd.Series(y_train).value_counts())
+    print("Overall class distribution in the test")
+    print(pd.Series(y_test).value_counts())
+    print("Overall class distribution in the additional test")
+    print(pd.Series(new_y_test).value_counts())
+    print("")
     print("X_train has shape:", X_train.shape)
     print("y_train has shape:", y_train.shape)
-    print("")
     print("X_test has shape:", X_test.shape)
     print("y_test has shape:", y_test.shape)
-    print("")
     print("X_val has shape:", X_val.shape)
     print("y_val has shape:", y_val.shape)
+    print("new_X_test has shape:", X_test.shape)
+    print("new_y_test has shape:", y_test.shape)
     
-    return X_train,X_test,X_val,y_train,y_test,y_val
+    return X_train,X_test,new_X_test,X_val,y_train,y_test,new_y_test,y_val
 
 
 def train_validate_CNN(summary:bool=False, epoch:int=15):
@@ -581,7 +605,7 @@ def CNN_learning_curve(history,epoch):
     plt.title('Training and Validation Accuracy')
     plt.show()
     
-def CNN_predict():
+def CNN_predict(X_test):
     """
     This function takes the probability of the CNN's decision for each image and returns the label with the highest one.
     ----------
@@ -598,7 +622,7 @@ def CNN_predict():
         temp.append(i)
     return temp
 
-def apply_pca(X_train,X_test,plot:bool=False):
+def apply_pca(X_train,X_test,new_X_test,plot:bool=False):
     """
     This function Standardises the data and fit/transforms train and test data into sets with lower dimensional vectors
     ----------
@@ -612,21 +636,26 @@ def apply_pca(X_train,X_test,plot:bool=False):
     ss = ss.fit(X_train)
     X_train = ss.transform(X_train)
     X_test = ss.transform(X_test)
+    new_X_test = ss.transform(new_X_test)
     
     pca = PCA(n_components = 2700)
     pca = pca.fit(X_train)
-
-    print('Initial train matrix shape is: ', X_train.shape)
+   
+    print("")
+    print('Initial train shape is: ', X_train.shape)
     print('Initial test shape is: ', X_test.shape)
+    print('Initial additional test shape is: ', X_test.shape)
+
     X_train = pca.transform(X_train)
     X_test = pca.transform(X_test)
+    new_X_test = pca.transform(new_X_test)
     print('PCA transformed train shape is: ', X_train.shape)
     print('PCA transformed test shape is: ', X_test.shape)
+    print('PCA transformed additional test shape is: ', new_X_test.shape)
     if plot is True:
         plt.plot(np.cumsum(pca.explained_variance_ratio_))
         plt.show()
-    return X_train,X_test,pca
-
+    return X_train,X_test,new_X_test,pca
 
 def grid_search_tuning(model,X_train,y_train):
     """
@@ -657,7 +686,7 @@ def grid_search_tuning(model,X_train,y_train):
     print("Best Estimators:\n", tuned_model.best_estimator_)
         
 
-def train_test(model,X_train,y_train,X_test,y_test):
+def train_test(model,X_train,y_train,X_test,y_test,new_X_test,new_y_test):
     """
     This function uses a given model to train and return classification decisions
     ----------
@@ -683,59 +712,106 @@ def train_test(model,X_train,y_train,X_test,y_test):
     print("                 Classification report")
     print("************************************************************")
     print(classification_report(y_test, y_pred))
-    return y_pred,train_acc,test_acc, model
+    print("")
+    print('Prediction accuracy for the additional test set'+"\n"+'**************************')
+    y_pred2 = model.predict(new_X_test)
+    test_acc2 = model.score(new_X_test,new_y_test)
+    print(test_acc2)
+    print("")
+    print("************************************************************")
+    print("       Classification report for the additional test set")
+    print("************************************************************")
+    print(classification_report(new_y_test, y_pred2))
+    return y_pred,y_pred2,train_acc,test_acc,test_acc2, model
 
 
 
+print("TASK A1 strating:")
 df = load_A1_data("celeba")
+X_train, X_test, new_X_test, y_train, y_test, new_y_test = data_partition(df,"combined")
+X_train, X_test, new_X_test, pca = apply_pca(X_train,X_test,new_X_test,plot=False)
 # plot_data_sample(df)
-X_train, X_test, y_train, y_test = data_partition(df,"combined")
-X_train, X_test,pca = apply_pca(X_train,X_test,plot=False)
 # plot_eigenfaces(pca)
 # plot_pca_projections(pca,X_train)
+
 
 
 # # grid_search_tuning("LR",X_train,y_train)
 LR =  LogisticRegression(C=0.001, max_iter=1500, solver='saga')
 print("Results for Logistic Regression in task A1 :")
 print("")
-plot_learning_curve (LR,"Learning curve for LR",X_train,y_train)
-y_pred_LR,train_acc_LR,test_acc_LR, LR = train_test(LR,X_train,y_train,X_test,y_test)
+y_pred_LR,y_pred2_LR,train_acc_LR,test_acc_LR,test_acc2_LR, LR = train_test(LR,X_train,y_train,X_test,y_test,new_X_test,new_y_test)
 auc_roc_LR= roc_auc_score(y_test,y_pred_LR)
+auc_roc2_LR= roc_auc_score(new_y_test,y_pred2_LR)
+# plot_learning_curve (LR,"Learning curve for LR",X_train,y_train)
+# print("Plots for the original test set")
 # plot_ROC(LR,auc_roc_LR,X_test,y_test)
 # plot_confusion_matrix(y_test,y_pred_LR)
+# print("Plots for the additional test set")
+# plot_ROC(LR,auc_roc2_LR,new_X_test,new_y_test)
+# plot_confusion_matrix(new_y_test,y_pred2_LR)
 
 
 # # grid_search_tuning("SVM",X_train,y_train)
 # SVM =  SVC(C=1, gamma=1e-05, kernel='sigmoid',probability=True)
 # print("Results for Support Vector Machines in task A1:")
 # print("")
-# plot_learning_curve (SVM,"Learning curve for SVM",X_train,y_train)
-# y_pred_SVM,train_acc_SVM,test_acc_SVM, SVM = train_test(SVM,X_train,y_train,X_test,y_test)
+# y_pred_SVM,y_pred2_SVM,train_acc_SVM,test_acc_SVM,test_acc2_SVM, SVM = train_test(SVM,X_train,y_train,X_test,y_test,new_X_test,new_y_test)
 # auc_roc_SVM= roc_auc_score(y_test,y_pred_SVM)
-# plot_ROC(SVM,auc_roc_SVM,X_test,y_test)
-# plot_confusion_matrix(y_test,y_pred_SVM)
+# auc_roc2_SVM= roc_auc_score(new_y_test,y_pred2_SVM)
+# # plot_learning_curve (SVM,"Learning curve for SVM",X_train,y_train)
+# # print("Plots for the original test set")
+# # plot_ROC(SVM,auc_roc_SVM,X_test,y_test)
+# # plot_confusion_matrix(y_test,y_pred_SVM)
+# # print("Plots for the additional test set")
+# # plot_ROC(SVM,auc_roc2_SVM,new_X_test,new_y_test)
+# # plot_confusion_matrix(new_y_test,y_pred2_SVM)
 
 
 # # grid_search_tuning("KNN",X_train,y_train)
-# KNN = KNeighborsClassifier(n_neighbors = 38)
-# print("Results for KNN in task A1 :")
+# KNN = KNeighborsClassifier(n_neighbors = 35)
+# print("Results for KNN in task A1:")
 # print("")
-# plot_learning_curve (KNN,"Learning curve for KNN",X_train,y_train)
-# y_pred_KNN,train_acc_KNN,test_acc_KNN, KNN = train_test(KNN,X_train,y_train,X_test,y_test)
+# y_pred_KNN,y_pred2_KNN,train_acc_KNN,test_acc_KNN,test_acc2_KNN, KNN = train_test(KNN,X_train,y_train,X_test,y_test,new_X_test,new_y_test)
 # auc_roc_KNN= roc_auc_score(y_test,y_pred_KNN)
-# plot_ROC(KNN,auc_roc_KNN,X_test,y_test)
-# plot_confusion_matrix(y_test,y_pred_KNN)
+# auc_roc2_KNN= roc_auc_score(new_y_test,y_pred2_KNN)
+# # plot_learning_curve (KNN,"Learning curve for KNN",X_train,y_train)
+# # print("Plots for the original test set")
+# # plot_ROC(KNN,auc_roc_KNN,X_test,y_test)
+# # plot_confusion_matrix(y_test,y_pred_KNN)
+# # print("Plots for the additional test set")
+# # plot_ROC(KNN,auc_roc2_KNN,new_X_test,new_y_test)
+# # plot_confusion_matrix(new_y_test,y_pred2_KNN)
 
 
-# X_train, X_test,X_val,y_train, y_test, y_val = data_partition_validate(df,"unchanged", augmentation=False)
+# X_train, X_test,new_X_test,X_val,y_train, y_test,new_y_test, y_val = data_partition_validate(df,"unchanged", augmentation=False)
 # print("Results for CNN in task A1 :")
 # print("")
 # history, model = train_validate_CNN(epoch=15)
-# CNN_learning_curve(history,len(history.history['accuracy']))
-# y_pred_CNN = CNN_predict()
-# print(classification_report(y_test, y_pred_CNN))
+# y_pred_CNN = CNN_predict(X_test)
+# train_acc_CNN = history.history["accuracy"][-1]
+# test_acc_CNN = accuracy_score(y_test, y_pred_CNN)
 # auc_roc_CNN= roc_auc_score(y_test,y_pred_CNN)
 # print("AUC CNN:", auc_roc_CNN)
-# plot_ROC(model,auc_roc_CNN,X_test,y_test)
-# plot_confusion_matrix(y_test,y_pred_CNN)
+# print("************************************************************")
+# print("                 Classification report")
+# print("************************************************************")
+# print(classification_report(y_test, y_pred_CNN))
+# y_pred2_CNN = CNN_predict(new_X_test)
+# test_acc2_CNN = accuracy_score(new_y_test, y_pred2_CNN)
+# print("************************************************************")
+# print("       Classification report for the additional test set")
+# print("************************************************************")
+# print(classification_report(new_y_test, y_pred2_CNN))
+# auc_roc2_CNN= roc_auc_score(new_y_test,y_pred2_CNN)
+# print("AUC for second test set CNN:", auc_roc2_CNN)
+# # CNN_learning_curve(history,len(history.history['accuracy']))
+# # print("")
+# # print("Plots for the test set")
+# # plot_ROC(model,auc_roc_CNN,X_test,y_test)
+# # plot_confusion_matrix(y_test,y_pred_CNN)
+# # print("")
+# # print("Plots for the test set")
+# # print("AUC CNN for the additional test set:", auc_roc2_CNN)
+# # plot_ROC(model,auc_roc2_CNN,new_X_test,new_y_test)
+# # plot_confusion_matrix(new_y_test,y_pred2_CNN)

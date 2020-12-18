@@ -14,7 +14,7 @@ from sklearn import linear_model
 from sklearn.svm import SVC
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import GridSearchCV,learning_curve,ShuffleSplit
+from sklearn.model_selection import learning_curve,ShuffleSplit
 from sklearn.cluster import KMeans
 
 # Used to visualise and process images for better performance 
@@ -53,7 +53,7 @@ def plot_mean_image():
     ----------
     """
 # Access all PNG files in directory
-    path = "/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/cartoon_set/img/"
+    path = "Datasets/cartoon_set/img/"
     allfiles=os.listdir(path)
     imlist=[filename for filename in allfiles]
     N=len(imlist)
@@ -184,7 +184,7 @@ def plot_data_sample(df):
         plt.xlabel(df["face_shape"].iloc[i])
     plt.show()
     
-def crop_images(image):
+def crop_images(image,folder):
     """
     This function uses the PILLOW library to crop images to reduce their large dimensions and allow faster computation
     ----------
@@ -192,7 +192,7 @@ def crop_images(image):
     image: String that provides the file name. Eg: "1.png"
     ----------
     """ 
-    img = Image.open("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/cartoon_set/img/"+str(image)).convert('RGB')
+    img = Image.open("Datasets/"+folder+"/img/"+str(image)).convert('RGB')
     # Setting the points for cropped image 
     left = 120
     top = 100
@@ -213,7 +213,7 @@ def load_B1_data(folder):
     folder: A string that refers to the name of teh folder we want to use. Eg: "celeba"/"celeba_test"/"cartoon_set"/"cartoon_set_test"
     ----------
     """
-    df= pd.read_csv("/Users/hzizi/Desktop/CW/dataset_AMLS_20-21/" +folder+ "/labels.csv")
+    df= pd.read_csv("Datasets/" +folder+ "/labels.csv")
     rows = []
     columns = []
     for i in [df.iloc[:,0]]:
@@ -224,7 +224,7 @@ def load_B1_data(folder):
         columns = (y.split())
     pbar = ProgressBar()
     for i in pbar(rows):
-        i[2] = np.asarray(crop_images(i[2]))       
+        i[2] = np.asarray(crop_images(i[2],folder))       
     df = DataFrame(rows,columns=columns)
 
     df["face_shape"] = pd.to_numeric(df["face_shape"])
@@ -288,22 +288,34 @@ def data_partition(df,extraction:str="flat"):
     X = pd.DataFrame(df["file_name"].values)
     y = pd.Series(df["face_shape"].values)
     X_train, X_test, y_train, y_test = train_test_split(X,y,test_size=.20,random_state=12039393)
-
+    
+    new_test_data = load_B1_data("cartoon_set_test")
+    new_X_test = pd.DataFrame(new_test_data["file_name"].values)
+    new_y_test = pd.Series(new_test_data["face_shape"].values)
+    
+    print("Feature extraction for X_train in progress ...")
     X_train = create_feature_matrix(X_train[0],extraction)
+    print("Feature extraction for X_test in progress ...")
     X_test = create_feature_matrix(X_test[0],extraction)
+    print("Feature extraction for the additional new_X_test in progress ...")
+    new_X_test = create_feature_matrix(new_X_test[0],extraction)
 
-    print("Overall class distribution in this dataset")
+    print("Overall class distribution in the training set ")
     print(pd.Series(y_train).value_counts())
+    print("Overall class distribution in the test")
     print(pd.Series(y_test).value_counts())
+    print("Overall class distribution in the additional test")
+    print(pd.Series(new_y_test).value_counts())
     print("")
     print("X_train has shape:", X_train.shape)
     print("y_train has shape:", y_train.shape)
     print("X_test has shape:", X_test.shape)
     print("y_test has shape:", y_test.shape)
-    return X_train,X_test,y_train,y_test
+    print("new_X_test has shape:", X_test.shape)
+    print("new_y_test has shape:", y_test.shape)
+    return X_train,X_test,new_X_test,y_train,y_test,new_y_test
 
-
-def apply_pca(X_train,X_test,plot:bool=False):
+def apply_pca(X_train,X_test,new_X_test,plot:bool=False):
     """
     This function Standardises the data and fit/transforms train and test data into sets with lower dimensional vectors
     ----------
@@ -317,21 +329,26 @@ def apply_pca(X_train,X_test,plot:bool=False):
     ss = ss.fit(X_train)
     X_train = ss.transform(X_train)
     X_test = ss.transform(X_test)
+    new_X_test = ss.transform(new_X_test)
     
     pca = PCA(n_components = 100)
     pca = pca.fit(X_train)
-
-    print('Initial train matrix shape is: ', X_train.shape)
+   
+    print("")
+    print('Initial train shape is: ', X_train.shape)
     print('Initial test shape is: ', X_test.shape)
+    print('Initial additional test shape is: ', new_X_test.shape)
+
     X_train = pca.transform(X_train)
     X_test = pca.transform(X_test)
+    new_X_test = pca.transform(new_X_test)
     print('PCA transformed train shape is: ', X_train.shape)
     print('PCA transformed test shape is: ', X_test.shape)
+    print('PCA transformed additional test shape is: ', new_X_test.shape)
     if plot is True:
         plt.plot(np.cumsum(pca.explained_variance_ratio_))
         plt.show()
-    return X_train,X_test,pca
-
+    return X_train,X_test,new_X_test,pca
 
 def data_partition_validate(df,extraction):
     """
@@ -353,21 +370,31 @@ def data_partition_validate(df,extraction):
                                                         random_state=1234123)
     X_train, X_val, y_train, y_val = train_test_split(X_train, y_train, test_size=0.25, random_state=1)
     
+    new_test_data = load_B1_data("cartoon_set_test")
+    new_X_test = pd.DataFrame(new_test_data["file_name"].values)
+    new_y_test = pd.Series(new_test_data["face_shape"].values)
+    
     X_train = create_feature_matrix(X_train[0],extraction)
     X_test = create_feature_matrix(X_test[0],extraction)
     X_val = create_feature_matrix(X_val[0],extraction)
+    new_X_test = create_feature_matrix(new_X_test[0],extraction)
 
-    # look at the distrubution of labels in the train set
+    print("Overall class distribution in the training set ")
+    print(pd.Series(y_train).value_counts())
+    print("Overall class distribution in the test")
+    print(pd.Series(y_test).value_counts())
+    print("Overall class distribution in the additional test")
+    print(pd.Series(new_y_test).value_counts())
+    print("")
     print("X_train has shape:", X_train.shape)
     print("y_train has shape:", y_train.shape)
-    print("")
     print("X_test has shape:", X_test.shape)
     print("y_test has shape:", y_test.shape)
-    print("")
     print("X_val has shape:", X_val.shape)
     print("y_val has shape:", y_val.shape)
-    
-    return X_train,X_test,X_val,y_train,y_test,y_val
+    print("new_X_test has shape:", X_test.shape)
+    print("new_y_test has shape:", y_test.shape)
+    return X_train,X_test,new_X_test,X_val,y_train,y_test,new_y_test,y_val
 
 
 def train_validate_CNN(summary:bool=False, epoch:int=15):
@@ -414,7 +441,14 @@ def train_validate_CNN(summary:bool=False, epoch:int=15):
     history = model.fit(X_train, to_categorical(y_train.values.ravel()), epochs=epoch, 
                         validation_data=(X_val, to_categorical(y_val.values.ravel())))
 
-    return history, model,epoch
+    return history, model
+
+def multi_class_auc(model,y_test,X_test,classes):
+    temp = []
+    for class_lab in classes:
+        temp.append(roc_auc_score(np.where(y_test==class_lab, 1,0), 
+                      [val[class_lab] for val in model.predict_proba(X_test)]))
+    return sum(temp) / len(temp)
 
 def CNN_learning_curve(history,epoch):
     """
@@ -440,7 +474,7 @@ def CNN_learning_curve(history,epoch):
     plt.show()
     
     
-def CNN_predict():
+def CNN_predict(X_test):
     """
     This function takes the probability of the CNN's decision for each image and returns the label with the highest one.
     ----------
@@ -457,7 +491,7 @@ def CNN_predict():
         temp.append(i)
     return temp
         
-def train_test(model,X_train,y_train,X_test,y_test):
+def train_test(model,X_train,y_train,X_test,y_test,new_X_test,new_y_test):
     """
     This function uses a given model to train and return classification decisions
     ----------
@@ -480,51 +514,96 @@ def train_test(model,X_train,y_train,X_test,y_test):
     print(test_acc)
     print("")
     print("************************************************************")
-    print("                  Classification report")
+    print("                 Classification report")
     print("************************************************************")
     print(classification_report(y_test, y_pred))
-    return y_pred,train_acc,test_acc, model
+    print("")
+    print('Prediction accuracy for the additional test set'+"\n"+'**************************')
+    y_pred2 = model.predict(new_X_test)
+    test_acc2 = model.score(new_X_test,new_y_test)
+    print(test_acc2)
+    print("")
+    print("************************************************************")
+    print("       Classification report for the additional test set")
+    print("************************************************************")
+    print(classification_report(new_y_test, y_pred2))
+    return y_pred,y_pred2,train_acc,test_acc,test_acc2, model
 
-
-
+print("TASK B1 strating:")
+classes = [0,1,2,3,4]
 df = load_B1_data("cartoon_set")
+
+X_train, X_test, new_X_test, y_train, y_test, new_y_test = data_partition(df,"flat")
+X_train, X_test, new_X_test, pca = apply_pca(X_train,X_test,new_X_test,plot=False)
 # plot_data_sample(df)
-X_train, X_test, y_train, y_test = data_partition(df,"flat")
-X_train, X_test,pca = apply_pca(X_train,X_test,plot=False)
 # plot_eigenfaces(pca)
 # plot_pca_projections(pca,X_train)
 
 
 LR =  LogisticRegression(max_iter=10000,multi_class='multinomial')
-print("")
 print("Results for Logistic Regression in task B1 :")
 print("")
-plot_learning_curve (LR,"Learning curve for LR",X_train,y_train)
-y_pred_LR,train_acc_LR,test_acc_LR, LR = train_test(LR,X_train,y_train,X_test,y_test)
-plot_confusion_matrix(y_test,y_pred_LR)
+y_pred_LR,y_pred2_LR,train_acc_LR,test_acc_LR,test_acc2_LR, LR = train_test(LR,X_train,y_train,X_test,y_test,new_X_test,new_y_test)
+auc_roc_LR= multi_class_auc(LR,y_test,X_test,classes)
+auc_roc2_LR= multi_class_auc(LR,new_y_test,new_X_test,classes)
+# plot_learning_curve (LR,"Learning curve for LR",X_train,y_train)
+# print("Plots for the original test set")
+# plot_confusion_matrix(y_test,y_pred_LR)
+# print("Plots for the additional test set")
+# plot_confusion_matrix(new_y_test,y_pred2_LR)
 
 
-# SVM = SVC()
+# SVM = SVC(probability=True)
 # print("Results for Support Vector Machines in task B1 :")
 # print("")
-# plot_learning_curve (SVM,"Learning curve for SVM",X_train,y_train)
-# y_pred_SVM,train_acc_SVM,test_acc_SVM, SVM = train_test(SVM,X_train,y_train,X_test,y_test)
-# plot_confusion_matrix(y_test,y_pred_SVM)
+# y_pred_SVM,y_pred2_SVM,train_acc_SVM,test_acc_SVM,test_acc2_SVM, SVM = train_test(SVM,X_train,y_train,X_test,y_test,new_X_test,new_y_test)
+# auc_roc_SVM= multi_class_auc(SVM,y_test,X_test,classes)
+# auc_roc2_SVM= multi_class_auc(SVM,new_y_test,new_X_test,classes)
+# # plot_learning_curve (SVM,"Learning curve for SVM",X_train,y_train)
+# # print("Plots for the original test set")
+# # plot_confusion_matrix(y_test,y_pred_SVM)
+# # print("Plots for the additional test set")
+# # plot_confusion_matrix(new_y_test,y_pred2_SVM)
 
 
-# KNN = KNeighborsClassifier(n_neighbors = 25)
+# KNN = KNeighborsClassifier(n_neighbors = 32)
 # print("Results for KNN in task B1 :")
 # print("")
-# plot_learning_curve (KNN,"Learning curve for Tuned KNN",X_train,y_train)
-# y_pred_KNN,train_acc_KNN,test_acc_KNN, KNN = train_test(KNN,X_train,y_train,X_test,y_test)
-# plot_confusion_matrix(y_test,y_pred_KNN)
+# y_pred_KNN,y_pred2_KNN,train_acc_KNN,test_acc_KNN,test_acc2_KNN, KNN = train_test(KNN,X_train,y_train,X_test,y_test,new_X_test,new_y_test)
+# auc_roc_KNN= multi_class_auc(KNN,y_test,X_test,classes)
+# auc_roc2_KNN= multi_class_auc(KNN,new_y_test,new_X_test,classes)
+# # plot_learning_curve (KNN,"Learning curve for Tuned KNN",X_train,y_train)
+# # print("Plots for the original test set")
+# # plot_confusion_matrix(y_test,y_pred_KNN)
+# # print("Plots for the additional test set")
+# # plot_confusion_matrix(new_y_test,y_pred2_KNN)
 
 
-# X_train, X_test,X_val,y_train, y_test, y_val = data_partition_validate(df,"unchanged")
-# history, model,epoch = train_validate_CNN(epoch=3)
-# y_pred_CNN = CNN_predict()
-# CNN_learning_curve(history,len(history.history['accuracy']))
+# X_train, X_test,new_X_test,X_val,y_train, y_test,new_y_test, y_val = data_partition_validate(df,"unchanged")
 # print("Results for CNN in task B1 :")
 # print("")
+# history, model = train_validate_CNN(epoch=3)
+# y_pred_CNN = CNN_predict(X_test)
+# train_acc_CNN = history.history["accuracy"][-1]
+# test_acc_CNN = accuracy_score(y_test, y_pred_CNN)
+# auc_roc_CNN= multi_class_auc(model,y_test,X_test,classes)
+# print("AUC CNN for initial test set :", auc_roc_CNN)
+# print("************************************************************")
+# print("                 Classification report")
+# print("************************************************************")
 # print(classification_report(y_test, y_pred_CNN))
-# plot_confusion_matrix(y_test,y_pred_CNN)
+# y_pred2_CNN = CNN_predict(new_X_test)
+# test_acc2_CNN = accuracy_score(new_y_test, y_pred2_CNN)
+# print("************************************************************")
+# print("       Classification report for the additional test set")
+# print("************************************************************")
+# print(classification_report(new_y_test, y_pred2_CNN))
+# auc_roc2_CNN= multi_class_auc(model,new_y_test,new_X_test,classes)
+# print("AUC CNN for the additional test set:", auc_roc2_CNN)
+# # CNN_learning_curve(history,len(history.history['accuracy']))
+# # print("")
+# # print("Plots for the test set")
+# # plot_confusion_matrix(y_test,y_pred_CNN)
+# # print("")
+# # print("Plots for the test set")
+# # plot_confusion_matrix(new_y_test,y_pred2_CNN)
