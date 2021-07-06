@@ -1,4 +1,4 @@
-# ELEC0134-Assignment
+# ELEC0134-Assignment: Gender detection and Eye color detection using teh celeba and cartoon datasets
 
 This folder project consists of four main folders. For each task, 4 implementations were tested and described in the report. 
 
